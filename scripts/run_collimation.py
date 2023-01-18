@@ -189,7 +189,7 @@ FCC_EE_WARM_REGIONS = np.array([
     [22363.40116677595, 22466.117401781252], [22469.617401781252, 22537.590351601168], 
     [22541.090351601168, 22677.974916715677], [22681.474916715677, 22785.08912369255], 
     [22786.33912369255, 22786.41912369255], [22787.66912369255, 22787.969123692554], 
-    [22789.219123692554, 22789.29912369255], [22790.54912369255, 22790.62912369256], 
+    [22789.219123692554, 22789.29912369255], [22790.54912369255, 22790.62912369256],  
     [22791.32912369256, 22795.729573734752], [22796.429573734753, 22796.50957373476], 
     [22797.75957373476, 22797.83957373476], [22799.08957373476, 22799.38957373476], 
     [22800.63957373476, 22800.71957373476], [22801.96957373476, 22807.543655699865], 
@@ -533,7 +533,7 @@ def load_and_process_line(config_dict):
         print('Using Xtrack-generated twiss table for collimator optics')
         # Use a clean tracker to compute the optics
         # TODO: reduce the copying here
-        optics_tracker = xt.Tracker(line=line.copy())
+        optics_tracker = line.copy().build_tracker()
         radiation_mode = run['radiation']
         if comp_eloss:
             # If energy loss compensation is required, taper the lattice
@@ -541,7 +541,6 @@ def load_and_process_line(config_dict):
             comp_eloss_delta0 = run.get('sr_compensation_delta', 0.0)
             _compensate_energy_loss(optics_tracker, comp_eloss_delta0)
             line = optics_tracker.line.copy()
-            XTRACK_TWISS_KWARGS['eneloss_and_damping'] = True
         _configure_tracker_radiation(optics_tracker, radiation_mode, for_optics=True)
         twiss = optics_tracker.twiss(**XTRACK_TWISS_KWARGS)
         line.tracker = None
@@ -753,14 +752,14 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
             delta = delta_sign * momentum_cut
 
     coll_s = line.get_s_position(at_elements=coll_name)
+    coll_length = coll_dict['length']
     if converging:
         match_s = coll_s
     else:
-        match_s = coll_s + coll_dict['length']
+        match_s = coll_s + coll_length
 
     part = xp.build_particles(
             _capacity=capacity,
-            particle_ref=ref_particle,
             tracker=tracker,
             x_norm=x_norm, px_norm=px_norm,
             y_norm=y_norm, py_norm=py_norm,
@@ -805,7 +804,7 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     drifted = False
     if not converging:
         drifted = True
-        drift_coll_length = xt.elements.Drift(length=coll_dict['length'])
+        drift_coll_length = xt.elements.Drift(length=coll_length)
         drift_coll_length.track(part_for_plot)
 
     part_for_plot.hide_lost_particles()
