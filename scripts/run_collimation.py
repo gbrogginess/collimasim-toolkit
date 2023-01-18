@@ -659,10 +659,10 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     converging = None
     if np.isclose(angle, 0):
         plane = 'H'
-        converging = coll_dict['ALFX'] > 0
+        converging = coll_dict['alfx'] > 0
     elif np.isclose(angle, np.pi/2):
         plane = 'V'
-        converging = coll_dict['ALFY'] > 0
+        converging = coll_dict['alfy'] > 0
     else:
         plane = 'S'
         raise Exception('Beams generation at skew collimators not implemented yet')
