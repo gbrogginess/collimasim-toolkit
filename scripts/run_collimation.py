@@ -886,11 +886,19 @@ def _prepare_direct_halo(config_dict, tracker, ref_particle, element, emitt_x, e
 
 def _prepare_matched_beam(config_dict, tracker, ref_particle, element, emitt_x, emitt_y, num_particles, capacity):
     print(f'Preparing a matched Gaussian beam at {element}')
-    sigma_z = dist_params = config_dict['dist']['parameters']['sigma_z']
+    sigma_z = config_dict['dist']['parameters']['sigma_z']
+    radiation_mode =  config_dict['run'].get('radiation', 'off')
+
+    _configure_tracker_radiation(tracker, radiation_mode, for_optics=True)
 
     x_norm, px_norm = xp.generate_2D_gaussian(num_particles)
     y_norm, py_norm = xp.generate_2D_gaussian(num_particles)
-    zeta = delta = 0
+    
+    # The longitudinal closed orbit needs to be manually supplied for now
+    twiss = tracker.twiss(**XTRACK_TWISS_KWARGS)
+    element_index = tracker.line.element_names.index(element)
+    zeta_co = twiss.zeta[element_index] 
+    delta_co = twiss.delta[element_index] 
 
     assert sigma_z >= 0
     if sigma_z > 0:
@@ -905,7 +913,8 @@ def _prepare_matched_beam(config_dict, tracker, ref_particle, element, emitt_x, 
         tracker=tracker,
         x_norm=x_norm, px_norm=px_norm,
         y_norm=y_norm, py_norm=py_norm,
-        zeta=zeta, delta=delta,
+        zeta=zeta + zeta_co,
+        delta=delta + delta_co,
         nemitt_x=emitt_x,
         nemitt_y=emitt_y,
         at_element=element,
