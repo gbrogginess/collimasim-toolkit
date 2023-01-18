@@ -800,6 +800,7 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
             drift_equiv_backward.track(part)
             part.s[active_part_range[0]:active_part_range[1]] -= coll_length
 
+    """
     embed()
     import matplotlib.pyplot as plt
     part_for_plot = part.copy()
@@ -815,7 +816,7 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     part_for_plot_prop.hide_lost_particles()
 
     if plane == 'H':
-        offs = twiss.x[match_element_index] - twiss.delta[match_element_index] * twiss.dx[match_element_index]
+        offs = coll_dict['x']
         data_x = part_for_plot.x
         data_y = part_for_plot.px
         data_prop_x = part_for_plot_prop.x
@@ -823,7 +824,7 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
         label_x = 'x [m]'
         label_y = 'px [rad]'
     else:
-        offs = twiss.y[match_element_index] + twiss.delta[match_element_index] * twiss.dy[match_element_index]
+        offs = coll_dict['y']
         data_x = part_for_plot.y
         data_y = part_for_plot.py
         data_prop_x = part_for_plot_prop.y
@@ -831,9 +832,9 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
         label_x = 'y [m]'
         label_y = 'py [rad]'
 
-    plt.scatter(data_x, data_y, label='halo particles')
+    plt.scatter(data_x, data_y, marker='.', label='halo particles')
     if drifted:
-     plt.scatter(data_prop_x, data_prop_y, label='starting particles')
+     plt.scatter(data_prop_x, data_prop_y, marker='.', label='starting particles')
     plt.axvline(halfgap + offs, c='r', label='coll. edge')
     plt.axvline(-halfgap + offs, c='r')
     plt.axvline(halfgap + imp_par + offs, c='g', label=f'coll. edge + imp. par. ({imp_par*1e6}um)')
@@ -844,12 +845,13 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     ax.legend()
     plt.show()
     fig, ax2 = plt.subplots()
-    ax2.scatter(part_for_plot.zeta, part_for_plot.delta, label='halo particles')
+    ax2.scatter(part_for_plot.zeta, part_for_plot.delta, marker='.', label='halo particles')
     ax2.set_xlabel('zeta')
     ax2.set_ylabel('delta')
     plt.show()
+    embed()
     raise SystemExit()
-
+    """
     return part
 
 
