@@ -697,10 +697,12 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
 
     if nsigma_for_offmom is not None:
         phys_cut_betatron = nsigma_for_offmom * sigma
+        assert abs(disp) > 0, 'Must have non-zero dispersion for off-mometnum beam'
         momentum_cut = abs((phys_cut_sigma - nsigma_for_offmom)*sigma / disp)
     else:
         phys_cut_betatron = halfgap + imp_par
-        momentum_cut = abs(phys_cut / disp)
+        # In this case, the momentum cut is not actually used for anything
+        momentum_cut = abs(phys_cut / disp) if abs(disp) > 0 else np.nan
     
     if spread_isnormed:
         spread_phys=spread * sigma
