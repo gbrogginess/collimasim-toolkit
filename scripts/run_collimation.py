@@ -42,9 +42,12 @@ else:
     warn("collimasim cannot be imported, some features will not work")
 
 ParticleInfo = namedtuple('ParticleInfo', ['name', 'pdgid', 'mass', 'charge'])
+MADX_ELECTRON_MASS_EV = 510998.95
 PARTICLE_INFO_DICT = {
-    'electron': ParticleInfo('electron', 11, xp.constants.ELECTRON_MASS_EV, -1),
-    'positron': ParticleInfo('positron', -11, xp.constants.ELECTRON_MASS_EV, 1),
+    # 'electron': ParticleInfo('electron', 11, xp.constants.ELECTRON_MASS_EV, -1),
+    # 'positron': ParticleInfo('positron', -11, xp.constants.ELECTRON_MASS_EV, 1),
+    'electron': ParticleInfo('electron', 11, MADX_ELECTRON_MASS_EV, -1),
+    'positron': ParticleInfo('positron', -11, MADX_ELECTRON_MASS_EV, 1),
     'proton': ParticleInfo('proton', 2212, xp.PROTON_MASS_EV, 1),
 }
 def _check_supported_particle(particle_name):
