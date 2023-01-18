@@ -677,6 +677,9 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     match_element_index = coll_index if converging else coll_index + 1
     twiss = tracker.twiss(**XTRACK_TWISS_KWARGS)
 
+    delta_co = twiss.delta[match_element_index] # The closed orbit delta
+    zeta_co = twiss.zeta[match_element_index]
+
     if plane == 'H':
         gemitt = emitt_x/ref_particle.beta0[0]/ref_particle.gamma0[0]
         beta = twiss.betx[match_element_index]
@@ -763,7 +766,8 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
             tracker=tracker,
             x_norm=x_norm, px_norm=px_norm,
             y_norm=y_norm, py_norm=py_norm,
-            zeta=zeta, delta=delta, # Assign the longitudinal coordinates in the final state
+            zeta=zeta + zeta_co, 
+            delta=delta + delta_co, # Assign the longitudinal coordinates in the final state, just closed_orbit here
             nemitt_x=emitt_x,
             nemitt_y=emitt_y,
             at_element=coll_name,
