@@ -779,11 +779,23 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
         print(f'Paramter sigma_z > 0, preparing a longitudinal distribution matched to the RF bucket')
         zeta_match, delta_match = xp.generate_longitudinal_coordinates(
         num_particles=num_particles, distribution='gaussian',
-        sigma_z=sigma_z, particle_ref=ref_particle, tracker=tracker)
+        sigma_z=sigma_z, tracker=tracker)
 
+        # If backtracking is needed, track to the final location, apply
+        # delta and track back again, to account for the effect of delta in the drift
+        if not converging:
+            drift_equiv_forward = xt.Drift(length=coll_dict['length'])
+            drift_equiv_forward.track(part)
+
+        # TODO: The bucket mathcing doesn't seem to find the closed orbit
         active_part_range = part.get_active_particle_id_range()
-        part.zeta[:active_part_range] += zeta_match
-        part.delta[:active_part_range] += delta_match
+        part.zeta[active_part_range[0]:active_part_range[1]] += zeta_match
+        part.delta[active_part_range[0]:active_part_range[1]] += delta_match
+
+        if not converging:
+            drift_equiv_backward = xt.Drift(length=-coll_length)
+            drift_equiv_backward.track(part)
+            part.s[active_part_range[0]:active_part_range[1]] -= coll_length
 
     embed()
     import matplotlib.pyplot as plt
