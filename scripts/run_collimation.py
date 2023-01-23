@@ -1337,6 +1337,7 @@ def prepare_lossmap(particles, line, s0, binwidth, weights):
         if isinstance(elem, xt.BeamInteraction) and isinstance(elem.interaction_process, cs.Geant4Collimator):
             coll_idx.append(idx)
     coll_idx = np.array(coll_idx)
+    coll_names = np.take(line.element_names, coll_idx)
 
     # Ignore unallocated array slots
     mask_allocated = particles.state > -9999
@@ -1407,6 +1408,7 @@ def prepare_lossmap(particles, line, s0, binwidth, weights):
     }
 
     coll_dict = {
+        'coll_name': coll_names,
         'coll_element_index': coll_idx,
         'coll_start': coll_start,
         'coll_end': coll_end,
