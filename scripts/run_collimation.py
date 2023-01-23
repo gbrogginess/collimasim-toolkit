@@ -1292,13 +1292,19 @@ def load_output(directory, output_file, match_pattern='*part.hdf*',
 
             # Collimator losses
             # These cannot be empty dataframes even if there is no losses
-            assert np.isclose(lmd_merged['lossmap_coll']['coll_start'],
-                              lmd['lossmap_coll']['coll_start'],
-                              num_tol).all()
+            assert np.allclose(lmd_merged['lossmap_coll']['coll_start'],
+                               lmd['lossmap_coll']['coll_start'],
+                               atol=num_tol)
 
-            assert np.isclose(lmd_merged['lossmap_coll']['coll_end'],
-                              lmd['lossmap_coll']['coll_end'],
-                              num_tol).all()
+            assert np.allclose(lmd_merged['lossmap_coll']['coll_end'],
+                               lmd['lossmap_coll']['coll_end'],
+                               atol=num_tol)
+            
+            assert np.array_equal(lmd_merged['lossmap_coll']['coll_element_index'],
+                                  lmd['lossmap_coll']['coll_element_index'])
+            
+            assert np.array_equal(lmd_merged['lossmap_coll']['coll_name'],
+                                  lmd['lossmap_coll']['coll_name'])
 
             lmd_merged['lossmap_coll']['coll_loss'] += lmd['lossmap_coll']['coll_loss']
 
