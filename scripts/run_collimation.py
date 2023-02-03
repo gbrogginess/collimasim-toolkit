@@ -28,6 +28,7 @@ from schema import Schema, And, Or, Use, Optional, SchemaError
 import xobjects as xo
 import xtrack as xt
 import xpart as xp
+import xfields as xf
 from pylhc_submitter.job_submitter import main as htcondor_submit
 
 XTRACK_TWISS_KWARGS = {}
@@ -122,12 +123,27 @@ INSERT_ELE_SCHEMA = Schema({'type': str,
                             'parameters': dict,
                            })
 
+# Needed for dict
+# # Enable beamstrahlung flag
+# # Particle distribution loading
+
+ONE_BEAMBEAM_SCHEMA = Schema({'at_element': str,
+                              'bunch_intensity': Use(to_float),
+                              'sigma_z': Use(to_float),
+                              'crossing_angle': Use(to_float),
+                              'other_beam_q0': Use(to_int),
+                              'n_slices': Use(to_int)
+                            })
+BEAMBEAM_SCHEMA = Schema({'beambeam': Or(ONE_BEAMBEAM_SCHEMA, 
+                                         Schema([ONE_BEAMBEAM_SCHEMA])),})
+
 RUN_SCHEMA = Schema({'energy_cut': Use(to_float),
                      'seed': Use(to_int),
                      'turns': Use(to_int),
                      'nparticles': Use(to_int),
                      'max_particles': Use(to_int),
                      Optional('radiation', default='off'): And(str, lambda s: s in ('off', 'mean', 'quantum')),
+                     Optional('beamstrahlung', default='off'): And(str, lambda s: s in ('off', 'mean', 'quantum')),
                      Optional('turn_rf_off', default=False): Use(bool),
                      Optional('compensate_sr_energy_loss', default=False): Use(bool),
                      Optional('sr_compensation_delta', default=None): Use(to_float),
@@ -381,6 +397,79 @@ def _insert_user_element(line, elem_def):
             line.insert_element(at_s=float(s_pos), 
                                 element=unique_elem_obj, 
                                 name=unique_name)
+            
+def _make_bb_lens(nb, phi, sigma_z, alpha, n_slices, other_beam_q0,
+                  sigma_x, sigma_px, sigma_y, sigma_py, beamstrahlung_on=False):
+       
+    slicer = xf.TempSlicer(n_slices=n_slices, sigma_z=sigma_z, mode="shatilov")
+
+    el_beambeam = xf.BeamBeamBiGaussian3D(
+            #_context=context,
+            config_for_update = None,
+            other_beam_q0=other_beam_q0,
+            phi=phi,
+            alpha=alpha,
+            # decide between round or elliptical kick formula
+            min_sigma_diff = 1e-28,
+            # slice intensity [num. real particles] n_slices inferred from length of this
+            slices_other_beam_num_particles = slicer.bin_weights * nb,
+            # unboosted strong beam moments
+            slices_other_beam_zeta_center = slicer.bin_centers,
+            slices_other_beam_Sigma_11    = n_slices*[sigma_x**2],
+            slices_other_beam_Sigma_22    = n_slices*[sigma_px**2],
+            slices_other_beam_Sigma_33    = n_slices*[sigma_y**2],
+            slices_other_beam_Sigma_44    = n_slices*[sigma_py**2],
+            # only if BS on
+            slices_other_beam_zeta_bin_width_star_beamstrahlung = None if not beamstrahlung_on else slicer.bin_widths_beamstrahlung / np.cos(phi),  # boosted dz
+            # has to be set
+            slices_other_beam_Sigma_12    = n_slices*[0],
+            slices_other_beam_Sigma_34    = n_slices*[0],
+        )
+    el_beambeam.iscollective = True # Disable in twiss
+
+    return el_beambeam
+    
+
+def _insert_beambeam_elements(line, config_dict, twiss_table, emit):
+    beamstrahlung_mode = config_dict['run'].get('beamstrahlung', 'off')
+    beamstrahlung_on = beamstrahlung_mode != 'off'
+
+    beambeam_block = config_dict.get('beambeam', None)
+    if beambeam_block is not None:
+
+        beambeam_list = beambeam_block
+        if not isinstance(beambeam_list, list):
+            beambeam_list = [beambeam_list, ]
+
+        print('Beam-beam definitions found, installing beam-beam elements at: {}'
+              .format(', '.join([dd['at_element'] for dd in beambeam_list])))
+            
+        for bb_def in beambeam_list:
+            element_name = bb_def['at_element']
+            # the beam-beam lenses are thin and have no effects on optics so no need to re-compute twiss
+            element_twiss_index = list(twiss_table.name).index(element_name)
+            # get the line index every time as it changes when elements are installed
+            element_line_index = line.element_names.index(element_name)
+            #element_spos = twiss_table.s[element_twiss_index]
+            
+            sigmas = twiss_table.get_betatron_sigmas(*emit if hasattr(emit, '__iter__') else (emit, emit))
+
+            bb_elem = _make_bb_lens(nb=float(bb_def['bunch_intensity']), 
+                                    phi=float(bb_def['crossing_angle']), 
+                                    sigma_z=float(bb_def['sigma_z']),
+                                    n_slices=int(bb_def['n_slices']),
+                                    other_beam_q0=int(bb_def['other_beam_q0']),
+                                    alpha=0,
+                                    sigma_x=sigmas['Sigma11'][element_twiss_index], 
+                                    sigma_px=sigmas['Sigma22'][element_twiss_index], 
+                                    sigma_y=sigmas['Sigma33'][element_twiss_index], 
+                                    sigma_py=sigmas['Sigma44'][element_twiss_index], 
+                                    beamstrahlung_on=beamstrahlung_on)
+            
+            line.insert_element(index=element_line_index, 
+                                element=bb_elem,
+                                name=f'beambeam_{element_name}')
+        
 
 def cycle_line(line, name):
     names = line.element_names.copy()
@@ -398,12 +487,17 @@ def cycle_line(line, name):
     return line, s0
 
 
-def _configure_tracker_radiation(tracker, radiation_mode, for_optics=False):
+def _configure_tracker_radiation(tracker, radiation_mode, beamstrahlung_mode=None, for_optics=False):
     mode_print = 'optics' if for_optics else 'tracking'
     print_message = f"Tracker synchrotron radiation mode for '{mode_print}' is '{radiation_mode}'"
 
     if radiation_mode == 'mean':
-        tracker.configure_radiation(model=radiation_mode)
+        if for_optics:
+            # Ignore beamstrahlung for optics
+            tracker.configure_radiation(model=radiation_mode)
+        else:
+            tracker.configure_radiation(model=radiation_mode, model_beamstrahlung='quantum')
+
          # The matrix stability tolerance needs to be relaxed for radiation and tapering
         tracker.matrix_stability_tol = 0.5
         if tracker.iscollective:
@@ -414,7 +508,7 @@ def _configure_tracker_radiation(tracker, radiation_mode, for_optics=False):
             " reverting to radiation='mean' for optics.")
             tracker.configure_radiation(model='mean')
         else:
-            tracker.configure_radiation(model='quantum')
+            tracker.configure_radiation(model='quantum', model_beamstrahlung='quantum')
         tracker.matrix_stability_tol = 0.5
         if tracker.iscollective:
             tracker._supertracker.matrix_stability_tol = 0.5
@@ -577,6 +671,9 @@ def load_and_process_line(config_dict):
         for elem_def in insert_elem_list:
             _insert_user_element(line, elem_def)
 
+    # Insert beam-beam lenses if any are specified:
+    _insert_beambeam_elements(line, config_dict, twiss, emit)
+    # embed()
     return line, ref_part, start_element, s0
 
 
@@ -1110,6 +1207,8 @@ def _apply_dynamic_element_change(line, tbt_change_list, turn):
 
 def run(config_dict, tracker, particles, ref_part, start_element, s0):
     radiation_mode = config_dict['run']['radiation']
+    beamstrahlung_mode = config_dict['run']['beamstrahlung']
+
     nturns = config_dict['run']['turns']
     line = tracker.line
     
@@ -1135,7 +1234,8 @@ def run(config_dict, tracker, particles, ref_part, start_element, s0):
                 dyn_change_elem = [dyn_change_elem,]
             tbt_change_list = _prepare_dynamic_element_change(line, twiss_table, gemit_x, gemit_y, dyn_change_elem, nturns)
 
-    _configure_tracker_radiation(tracker, radiation_mode, for_optics=False)
+    
+    _configure_tracker_radiation(tracker, radiation_mode, beamstrahlung_mode, for_optics=False)
     if radiation_mode == 'quantum':
         # Explicitly initialise the random number generator for the quantum mode
         seed = config_dict['run']['seed']
