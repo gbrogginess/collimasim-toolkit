@@ -736,9 +736,6 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     
     _configure_tracker_radiation(tracker, radiation_mode, for_optics=True)
 
-    # Initialise the coordinates
-    x_norm = px_norm = y_norm = py_norm = zeta = delta = 0
-
     line = tracker.line
     g4man = line.element_dict[coll_name].interaction_process.g4manager
 
@@ -754,16 +751,16 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     plane = None
     converging = None
     if np.isclose(angle, 0):
-        plane = 'H'
+        plane = 'x'
         converging = coll_dict['alfx'] > 0
     elif np.isclose(angle, np.pi/2):
-        plane = 'V'
+        plane = 'y'
         converging = coll_dict['alfy'] > 0
     else:
-        plane = 'S'
+        plane = 's'
         raise Exception('Beams generation at skew collimators not implemented yet')
 
-    plane_print = {'H': 'HORIZONTAL', 'V': 'VERTICAL'}[plane]
+    plane_print = {'x': 'HORIZONTAL', 'y': 'VERTICAL'}[plane]
     conv_print = 'CONVERGING' if converging else 'DIVERGING'
     edge_print = 'UPSTREAM' if converging else 'DOWNSTREAM'
     print(f'Collimator {coll_name} identified as {plane_print}')
@@ -774,16 +771,20 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     match_element_index = coll_index if converging else coll_index + 1
     twiss = tracker.twiss(**XTRACK_TWISS_KWARGS)
 
-    delta_co = twiss.delta[match_element_index] # The closed orbit delta
-    zeta_co = twiss.zeta[match_element_index]
+    coll_s = line.get_s_position(at_elements=coll_name)
+    coll_length = coll_dict['length']
+    if converging:
+        match_s = coll_s
+    else:
+        match_s = coll_s + coll_length
 
-    if plane == 'H':
+    if plane == 'x':
         gemitt = emitt_x/ref_particle.beta0[0]/ref_particle.gamma0[0]
         beta = twiss.betx[match_element_index]
         gamma = twiss.gamx[match_element_index]
         disp = twiss.dx[match_element_index]
         disp_prime = twiss.dpx[match_element_index]
-    elif plane == 'V':
+    elif plane == 'y':
         gemitt = emitt_y/ref_particle.beta0[0]/ref_particle.gamma0[0]
         beta = twiss.bety[match_element_index]
         gamma = twiss.gamy[match_element_index]
@@ -794,13 +795,12 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     phys_cut = halfgap + imp_par
     phys_cut_sigma = phys_cut / sigma
 
+
+    phys_cut_betatron = halfgap + imp_par
     if nsigma_for_offmom is not None:
-        phys_cut_betatron = nsigma_for_offmom * sigma
         assert abs(disp) > 0, 'Must have non-zero dispersion for off-mometnum beam'
         momentum_cut = abs((phys_cut_sigma - nsigma_for_offmom)*sigma / disp)
     else:
-        phys_cut_betatron = halfgap + imp_par
-        # In this case, the momentum cut is not actually used for anything
         momentum_cut = abs(phys_cut / disp) if abs(disp) > 0 else np.nan
     
     if spread_isnormed:
@@ -819,83 +819,90 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     halo_nsigma_outer = halo_cut_outer / sigma
     dr_sigmas = halo_nsigma_outer - halo_nsigma_inner
 
-    # Horizontal distribution
-    if plane == 'H':
-        # Collimator plane: generate pencil distribution in normalized coordinates
-        x_norm, px_norm, _, _ = xp.generate_2D_pencil(
-                                num_particles=num_particles,
-                                pos_cut_sigmas=halo_nsigma_inner,
-                                dr_sigmas=dr_sigmas,
-                                side=side)
-    else:
-        # Other plane: generate gaussian distribution in normalized coordinates
-        x_norm, px_norm = xp.generate_2D_gaussian(num_particles)
+    # Extent computation done, generate the coordinates
+    coord_dict = {
+        'x': None, 'px': None, 
+        'y': None, 'py': None, 
+        'zeta': None, 'delta': None,
+        'x_norm': None, 'px_norm': None,
+        'y_norm': None, 'py_norm': None,
+        # No delta_norm, as actually pzeta_norm is required and it is not needed anyway
+    }
 
-    # Vertical distributuion
-    if plane == 'V':
-        y_norm, py_norm, _, _ = xp.generate_2D_pencil(
-                                num_particles=num_particles,
-                                pos_cut_sigmas=halo_nsigma_inner,
-                                dr_sigmas=dr_sigmas,
-                                side=side)
+    if plane=='x':
+        abs_plane, norm_plane = 'x', 'y'
     else:
-        y_norm, py_norm = xp.generate_2D_gaussian(num_particles)
+        abs_plane, norm_plane = 'y', 'x'
+
+    # Collimator plane: generate pencil distribution in absolute coordinates
+    abs_coords = []
+    nsides = len(side) # 1 or 2
+    _round_funcs = (np.ceil, np.floor) # ensure the total number of particles is conserved
+    for i, _ss in enumerate(list(side)):
+        factor = -1 if _ss == '-' else 1
+        npart = int(_round_funcs[i](num_particles / nsides))
+        abs_coords.append(xp.generate_2D_pencil_with_absolute_cut(
+                npart, 
+                plane=abs_plane, 
+                absolute_cut=factor*halo_cut_inner + coll_dict[abs_plane], 
+                dr_sigmas=dr_sigmas,
+                side=_ss, tracker=tracker,
+                nemitt_x=emitt_x, nemitt_y=emitt_y,
+                at_element=coll_name, match_at_s=match_s,
+                **XTRACK_TWISS_KWARGS,))
     
+    coord_dict[f'{abs_plane}'] = np.concatenate([cc[0] for cc in abs_coords])
+    coord_dict[f'p{abs_plane}'] = np.concatenate([cc[1] for cc in abs_coords])
+
+    # Other plane: generate a gaussian
+    norm_coords = xp.generate_2D_gaussian(num_particles)
+    coord_dict[f'{norm_plane}_norm'] = norm_coords[0]
+    coord_dict[f'p{norm_plane}_norm'] = norm_coords[1]
+
+    # Longitudinal distribution always in absolute coordinates
+    zeta = 0
+    delta = 0
+    # Off-momentum delta if an off-momentum beam is specified
     if nsigma_for_offmom is not None:
         if side == '+-':
             # Set delta to push the particles towards the corresponding jaw
-            delta_signs = np.sign(disp) * (x_norm > 0) + -np.sign(disp) * (x_norm < 0)
+            delta_signs = np.sign(disp) * (coord_dict[abs_plane] > 0) + -np.sign(disp) * (coord_dict[abs_plane] < 0)
             delta = delta_signs * momentum_cut
         else:
             factor = -1 if side=='-' else 1
             delta_sign = factor * np.sign(disp)
             delta = delta_sign * momentum_cut
 
-    coll_s = line.get_s_position(at_elements=coll_name)
-    coll_length = coll_dict['length']
-    if converging:
-        match_s = coll_s
-    else:
-        match_s = coll_s + coll_length
-
-    part = xp.build_particles(
-            _capacity=capacity,
-            tracker=tracker,
-            x_norm=x_norm, px_norm=px_norm,
-            y_norm=y_norm, py_norm=py_norm,
-            zeta=zeta + zeta_co, 
-            delta=delta + delta_co, # Assign the longitudinal coordinates in the final state, just closed_orbit here
-            nemitt_x=emitt_x,
-            nemitt_y=emitt_y,
-            at_element=coll_name,
-            match_at_s=match_s,
-            **XTRACK_TWISS_KWARGS,
-            )
-    
-    # Longitudinal distribution - assigned at the end to avoid
-    # affecting the transverse coordinates
+    # Longitudinal distribution if specified
     assert sigma_z >= 0
     if sigma_z > 0:
         print(f'Paramter sigma_z > 0, preparing a longitudinal distribution matched to the RF bucket')
         zeta_match, delta_match = xp.generate_longitudinal_coordinates(
         num_particles=num_particles, distribution='gaussian',
         sigma_z=sigma_z, tracker=tracker)
+    else:
+        zeta_match = delta_match = 0
 
-        # If backtracking is needed, track to the final location, apply
-        # delta and track back again, to account for the effect of delta in the drift
-        if not converging:
-            drift_equiv_forward = xt.Drift(length=coll_dict['length'])
-            drift_equiv_forward.track(part)
+    # Longitudinal closed orbit
+    delta_co = twiss.delta[match_element_index] # The closed orbit delta
+    zeta_co = twiss.zeta[match_element_index]
 
-        # TODO: The bucket mathcing doesn't seem to find the closed orbit
-        active_part_range = part.get_active_particle_id_range()
-        part.zeta[active_part_range[0]:active_part_range[1]] += zeta_match
-        part.delta[active_part_range[0]:active_part_range[1]] += delta_match
+    coord_dict['zeta'] = zeta + zeta_co + zeta_match
+    coord_dict['delta'] = delta + delta_co + delta_match
 
-        if not converging:
-            drift_equiv_backward = xt.Drift(length=-coll_length)
-            drift_equiv_backward.track(part)
-            part.s[active_part_range[0]:active_part_range[1]] -= coll_length
+    part = xp.build_particles(
+            _capacity=capacity,
+            tracker=tracker,
+            x=coord_dict['x'], px=coord_dict['px'],
+            x_norm=coord_dict['x_norm'], px_norm=coord_dict['px_norm'],
+            y=coord_dict['y'], py=coord_dict['py'],
+            y_norm=coord_dict['y_norm'], py_norm=coord_dict['py_norm'],
+            zeta=coord_dict['zeta'], delta=coord_dict['delta'],
+            nemitt_x=emitt_x, nemitt_y=emitt_y,
+            at_element=coll_name,
+            match_at_s=match_s,
+            **XTRACK_TWISS_KWARGS,
+            )
 
     """
     embed()
@@ -912,7 +919,7 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     part_for_plot.hide_lost_particles()
     part_for_plot_prop.hide_lost_particles()
 
-    if plane == 'H':
+    if plane == 'x':
         offs = coll_dict['x']
         data_x = part_for_plot.x
         data_y = part_for_plot.px
