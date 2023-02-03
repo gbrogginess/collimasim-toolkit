@@ -407,15 +407,15 @@ def _make_bb_lens(nb, phi, sigma_z, alpha, n_slices, other_beam_q0,
             #_context=context,
             config_for_update = None,
             other_beam_q0=other_beam_q0,
-            phi=phi,
-            alpha=alpha,
+            phi=phi, # half-crossing angle in radians
+            alpha=alpha, # crossing plane
             # decide between round or elliptical kick formula
             min_sigma_diff = 1e-28,
             # slice intensity [num. real particles] n_slices inferred from length of this
             slices_other_beam_num_particles = slicer.bin_weights * nb,
             # unboosted strong beam moments
             slices_other_beam_zeta_center = slicer.bin_centers,
-            slices_other_beam_Sigma_11    = n_slices*[sigma_x**2],
+            slices_other_beam_Sigma_11    = n_slices*[sigma_x**2], # Beam sizes for the other beam, assuming the same is approximation
             slices_other_beam_Sigma_22    = n_slices*[sigma_px**2],
             slices_other_beam_Sigma_33    = n_slices*[sigma_y**2],
             slices_other_beam_Sigma_44    = n_slices*[sigma_py**2],
@@ -459,7 +459,7 @@ def _insert_beambeam_elements(line, config_dict, twiss_table, emit):
                                     sigma_z=float(bb_def['sigma_z']),
                                     n_slices=int(bb_def['n_slices']),
                                     other_beam_q0=int(bb_def['other_beam_q0']),
-                                    alpha=0,
+                                    alpha=0, # Put it to zero, it is okay for this use case
                                     sigma_x=sigmas['Sigma11'][element_twiss_index], 
                                     sigma_px=sigmas['Sigma22'][element_twiss_index], 
                                     sigma_y=sigmas['Sigma33'][element_twiss_index], 
