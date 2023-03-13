@@ -1319,13 +1319,15 @@ def run(config_dict, tracker, particles, ref_part, start_element, s0):
 
     # Save another file with uninterpolated losses
     # DEBUG
-    nointerp_filename = output_file.replace('.hdf', '') + '_nointerp.hdf' 
-    binwidth = config_dict['lossmap']['aperture_binwidth']
-    weights = config_dict['lossmap'].get('weights', 'none')
-    nointerp_lossmap_data = prepare_lossmap(
-        particles_before, line, s0, binwidth=binwidth,  weights=weights)
-    _save_particles_hdf(particles_before, lossmap_data=nointerp_lossmap_data,
-                        filename=nointerp_filename)
+    if ('lossmap' in config_dict
+        and config_dict['lossmap'].get('make_lossmap', False)):
+        nointerp_filename = output_file.replace('.hdf', '') + '_nointerp.hdf' 
+        binwidth = config_dict['lossmap']['aperture_binwidth']
+        weights = config_dict['lossmap'].get('weights', 'none')
+        nointerp_lossmap_data = prepare_lossmap(
+            particles_before, line, s0, binwidth=binwidth,  weights=weights)
+        _save_particles_hdf(particles_before, lossmap_data=nointerp_lossmap_data,
+                            filename=nointerp_filename)
 
 
 def load_output(directory, output_file, match_pattern='*part.hdf*',
