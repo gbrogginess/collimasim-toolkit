@@ -1005,7 +1005,6 @@ def _prepare_direct_halo(config_dict, tracker, ref_particle, element, emitt_x, e
                                 spread, spread_symmetric, spread_isnormed, 
                                 sigma_z, nsigma_for_offmom, 
                                 num_particles, capacity)
-
     return part
 
 def _prepare_matched_beam(config_dict, tracker, ref_particle, element, emitt_x, emitt_y, num_particles, capacity):
