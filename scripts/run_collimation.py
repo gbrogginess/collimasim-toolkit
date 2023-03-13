@@ -1025,6 +1025,7 @@ def _prepare_matched_beam(config_dict, tracker, ref_particle, element, emitt_x, 
     delta_co = twiss.delta[element_index] 
 
     assert sigma_z >= 0
+    zeta = delta = 0
     if sigma_z > 0:
         print(f'Paramter sigma_z > 0, preparing a longitudinal distribution matched to the RF bucket')
         zeta, delta = xp.generate_longitudinal_coordinates(
