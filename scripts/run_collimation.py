@@ -487,35 +487,38 @@ def cycle_line(line, name):
     return line, s0
 
 
-def _configure_tracker_radiation(tracker, radiation_mode, beamstrahlung_mode=None, for_optics=False):
+def _configure_tracker_radiation(tracker, radiation_model, beamstrahlung_model=None, for_optics=False):
     mode_print = 'optics' if for_optics else 'tracking'
-    print_message = f"Tracker synchrotron radiation mode for '{mode_print}' is '{radiation_mode}'"
 
-    if radiation_mode == 'mean':
+    print_message = f"Tracker synchrotron radiation mode for '{mode_print}' is '{radiation_model}'"
+
+    _beamstrahlung_model = None if beamstrahlung_model == 'off' else beamstrahlung_model
+
+    if radiation_model == 'mean':
         if for_optics:
             # Ignore beamstrahlung for optics
-            tracker.configure_radiation(model=radiation_mode)
+            tracker.configure_radiation(model=radiation_model)
         else:
-            tracker.configure_radiation(model=radiation_mode, model_beamstrahlung='quantum')
+            tracker.configure_radiation(model=radiation_model, model_beamstrahlung=_beamstrahlung_model)
 
          # The matrix stability tolerance needs to be relaxed for radiation and tapering
         tracker.matrix_stability_tol = 0.5
         if tracker.iscollective:
             tracker._supertracker.matrix_stability_tol = 0.5
-    elif radiation_mode == 'quantum':
+    elif radiation_model == 'quantum':
         if for_optics:
             print_message = ("Cannot perform optics calculations with radiation='quantum',"
             " reverting to radiation='mean' for optics.")
             tracker.configure_radiation(model='mean')
         else:
-            tracker.configure_radiation(model='quantum', model_beamstrahlung='quantum')
+            tracker.configure_radiation(model='quantum', model_beamstrahlung=_beamstrahlung_model)
         tracker.matrix_stability_tol = 0.5
         if tracker.iscollective:
             tracker._supertracker.matrix_stability_tol = 0.5
-    elif radiation_mode == 'off':
+    elif radiation_model == 'off':
         pass
     else:
-        raise ValueError('Unsupported radiation model: {}'.format(radiation_mode))
+        raise ValueError('Unsupported radiation model: {}'.format(radiation_model))
     print(print_message)
 
 
