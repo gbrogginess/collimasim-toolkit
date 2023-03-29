@@ -78,6 +78,11 @@ BEAM_SCHEMA = Schema({'particle': _check_supported_particle,
                       })
 
 GPDIST_DIST_SCHEMA = Schema({'file': os.path.exists})
+
+XSUITE_DIST_SCHEMA = Schema({'file': os.path.exists,
+                             Optional('keep_ref_particle', default=False): Use(bool),
+                             Optional('copy_file', default=False): Use(bool),
+                             })
 HALO_POINT_SCHM = Schema({'type': And(str, lambda s: s in ('halo_point', )),
                           'impact_parameter': Use(to_float),
                           'side': And(str, lambda s: s in ('positive', 'negative', 'both')),
@@ -99,9 +104,10 @@ MATCHED_SCHM = Schema({'type': And(str, lambda s: s in ('matched_beam',)),
                         })
 
 
-DIST_SCHEMA = Schema({'source': And(str, lambda s: s in ('gpdist', 'internal')),
+DIST_SCHEMA = Schema({'source': And(str, lambda s: s in ('gpdist', 'internal', 'xsuite')),
              Optional('start_element', default=None): Or(str.lower, None),
         'parameters': Or(GPDIST_DIST_SCHEMA,
+                         XSUITE_DIST_SCHEMA,
                          MATCHED_SCHM,
                          HALO_DIR_SCHM,
                          HALO_POINT_SCHM,
@@ -680,6 +686,60 @@ def load_and_process_line(config_dict):
     return line, ref_part, start_element, s0
 
 
+def load_xsuite_csv_particles(dist_file, ref_particle, tracker, element, num_part, capacity, keep_ref_particle=False, copy_file=False):
+
+    orig_file_path = Path(dist_file)
+    if copy_file:
+        dest = Path.cwd() / f'copied_{orig_file_path.name}'
+        shutil.copy2(orig_file_path, dest)
+        dist_file_path = dest
+    else:
+        dist_file_path = orig_file_path
+
+    part_df = pd.read_csv(dist_file_path, index_col=0)
+
+    # if keep_ref_particle:
+    #     part_in = xp.Particles.from_pandas(part_df.iloc[:5])
+    #     p0c =  part_in.p0c[0]
+    #     mass0 = part_in.mass0
+    #     q0 = part_in.q0
+    # else:
+    #     p0c =  ref_particle.p0c[0]
+    #     mass0 = ref_particle.mass0
+    #     q0 = ref_particle.q0
+
+    at_element = tracker.line.element_names.index(element)
+    start_s = tracker.line.get_s_position(at_elements=at_element, mode="upstream")
+
+    # Need to make sure there is enough space allocated
+    # particles = xp.Particles(_capacity=capacity,
+    #                          p0c = p0c,
+    #                          mass0 = mass0,
+    #                          q0 = q0,
+    #                          s = np.full(num_part, fill_value=start_s),
+    #                          at_element = np.full(num_part, fill_value=start_s),
+    #                          **{var: part_df[var][:num_part] for var in part_df.columns})
+    
+    particles = xp.build_particles(
+                _capacity=capacity,
+                tracker=tracker,
+                particle_ref=ref_particle,
+                mode='set',
+                x = part_df['x'].values[:num_part],
+                px = part_df['px'].values[:num_part],
+                y = part_df['y'].values[:num_part],
+                py = part_df['py'].values[:num_part],
+                zeta = part_df['zeta'].values[:num_part],
+                delta = part_df['delta'].values[:num_part],
+                **XTRACK_TWISS_KWARGS,
+            )
+    
+    particles.start_tracking_at_element = at_element
+    particles.at_element = at_element
+    particles.s = start_s
+    
+    return particles
+
 def load_gpdist_distr(dist_file, ref_particle, capacity):
     # Load a file with initial coordinates from gpdist and convert it to MADX inrays format
 
@@ -1077,6 +1137,20 @@ def generate_xpart_particles(config_dict, tracker, ref_particle, capacity):
 
     return particles
 
+def load_xsuite_particles(config_dict, tracker, ref_particle, capacity):
+    dist_params = config_dict['dist']['parameters']
+    num_particles = config_dict['run']['nparticles']
+    element = config_dict['dist']['start_element']
+
+    dist_file = dist_params['file']
+    keep_ref_part = dist_params['keep_ref_particle']
+    copy_file = dist_params['copy_file']
+
+    part = load_xsuite_csv_particles(dist_file, ref_particle, tracker, element, num_particles, capacity, 
+                                     keep_ref_particle=keep_ref_part, copy_file=copy_file)
+    
+    return part
+    
 
 def prepare_particles(config_dict, tracker, ref_particle):
     dist = config_dict['dist']
@@ -1086,12 +1160,13 @@ def prepare_particles(config_dict, tracker, ref_particle):
 
     if dist['source'] == 'gpdist':
         particles = load_gpdist_distr(dist['file'], ref_particle, capacity)
+    elif dist['source'] == 'xsuite':
+        particles = load_xsuite_particles(config_dict, tracker, ref_particle, capacity)
     elif dist['source'] == 'internal':
         particles = generate_xpart_particles(config_dict, tracker, ref_particle, capacity)
     else:
         raise ValueError('Unsupported distribution source: {}. Supported ones are: {}'
                          .format(dist['soruce'], ','.join(_supported_dist)))
-
     return particles
 
 
