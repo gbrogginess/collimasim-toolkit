@@ -1280,7 +1280,7 @@ def run(config_dict, tracker, particles, ref_part, start_element, s0):
             tracker.track(particles, num_turns=1)
 
         if particles._num_active_particles == 0:
-            print('All particles lost, teminating.')
+            print(f'All particles lost by turn {turn}, teminating.')
             break
 
     print(f'Tracking {nturns} turns done in: {time.time()-t0} s')
