@@ -1184,7 +1184,7 @@ def build_tracker(line):
 def _compute_parameter(parameter, expression, turn, max_turn, extra_variables={}):
     # custom function handling - random numbers, special functions
     # populate the local variables with the computed values
-    # TODOL This is a bit wonky - may need a full parser later on
+    # TODO This is a bit wonky - may need a full parser later on
     if 'rand_uniform' in expression:
         rand_uniform = np.random.random()
     if 'rand_onoff' in expression:
