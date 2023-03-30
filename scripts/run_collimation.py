@@ -314,7 +314,14 @@ class BeamHeater():
         particles.px += -self.max_kick_x + 2 * np.random.uniform(size=len(particles.px)) * self.max_kick_x
         particles.py += -self.max_kick_y + 2 * np.random.uniform(size=len(particles.py)) * self.max_kick_y
 
-CUSTOM_ELEMENTS = {'BeamHeater': BeamHeater}
+CUSTOM_ELEMENTS = {'BeamHeater': BeamHeater} 
+
+try:
+    from xcain import laser_interaction as xc
+    print('XCain found, LaserInteraction will be available as a user element')
+    CUSTOM_ELEMENTS['LaserInteraction'] = xc.LaserInteraction
+except ImportError:
+    pass
 
 
 def find_apertures(line):
