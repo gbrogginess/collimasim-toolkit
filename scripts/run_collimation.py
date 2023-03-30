@@ -1190,7 +1190,7 @@ def _compute_parameter(parameter, expression, turn, max_turn, extra_variables={}
     if 'rand_onoff' in expression:
         rand_onoff = np.random.randint(2)
     var_dict = {**locals(), **extra_variables}
-    return float(ne.evaluate(expression, local_dict=var_dict))
+    return type(parameter)(ne.evaluate(expression, local_dict=var_dict))
 
 
 def _collect_element_names(line, match_string, regex_mode=False):
