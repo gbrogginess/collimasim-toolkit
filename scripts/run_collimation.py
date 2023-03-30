@@ -1271,6 +1271,7 @@ def _prepare_dynamic_element_change(line, twiss_table, gemit_x, gemit_y, change_
                 ebe_change_dict[ele_name] = parameter_values
 
         tbt_change_list.append([param_name, param_index, ebe_change_dict])
+        print('Dynamic element change list: ', tbt_change_list)
 
     return tbt_change_list
 
