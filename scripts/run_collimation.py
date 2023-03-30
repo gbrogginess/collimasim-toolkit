@@ -1187,7 +1187,7 @@ def _compute_parameter(parameter, expression, turn, max_turn, extra_variables={}
     # TODOL This is a bit wonky - may need a full parser later on
     if 'rand_uniform' in expression:
         rand_uniform = np.random.random()
-    elif 'rand_onoff' in expression:
+    if 'rand_onoff' in expression:
         rand_onoff = np.random.randint(2)
     var_dict = {**locals(), **extra_variables}
     return float(ne.evaluate(expression, local_dict=var_dict))
