@@ -1382,7 +1382,8 @@ def run(config_dict, tracker, particles, ref_part, start_element, s0):
         loss_refiner = xt.LossLocationRefinement(tracker, n_theta=360,
                                                  r_max=1, dr=50e-6,
                                                  ds=aper_interp, 
-                                                 allowed_backtrack_types=(xt.elements.Multipole, 
+                                                 allowed_backtrack_types=(xt.elements.Multipole,
+                                                                          xt.elements.DipoleEdge,
                                                                           xt.elements.Marker, 
                                                                           xt.elements.Cavity))
         loss_refiner.refine_loss_location(particles)
