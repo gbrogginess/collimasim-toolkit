@@ -500,7 +500,7 @@ def cycle_line(line, name):
     return line, s0
 
 
-def _configure_tracker_radiation(tracker, radiation_model, beamstrahlung_model=None, for_optics=False):
+def _configure_tracker_radiation(line, radiation_model, beamstrahlung_model=None, for_optics=False):
     mode_print = 'optics' if for_optics else 'tracking'
 
     print_message = f"Tracker synchrotron radiation mode for '{mode_print}' is '{radiation_model}'"
@@ -510,24 +510,22 @@ def _configure_tracker_radiation(tracker, radiation_model, beamstrahlung_model=N
     if radiation_model == 'mean':
         if for_optics:
             # Ignore beamstrahlung for optics
-            tracker.configure_radiation(model=radiation_model)
+            line.configure_radiation(model=radiation_model)
         else:
-            tracker.configure_radiation(model=radiation_model, model_beamstrahlung=_beamstrahlung_model)
+            line.configure_radiation(model=radiation_model, model_beamstrahlung=_beamstrahlung_model)
 
          # The matrix stability tolerance needs to be relaxed for radiation and tapering
-        tracker.matrix_stability_tol = 0.5
-        if tracker.iscollective:
-            tracker._supertracker.matrix_stability_tol = 0.5
+        line.matrix_stability_tol = 0.5
+
     elif radiation_model == 'quantum':
         if for_optics:
             print_message = ("Cannot perform optics calculations with radiation='quantum',"
             " reverting to radiation='mean' for optics.")
-            tracker.configure_radiation(model='mean')
+            line.configure_radiation(model='mean')
         else:
-            tracker.configure_radiation(model='quantum', model_beamstrahlung=_beamstrahlung_model)
-        tracker.matrix_stability_tol = 0.5
-        if tracker.iscollective:
-            tracker._supertracker.matrix_stability_tol = 0.5
+            line.configure_radiation(model='quantum', model_beamstrahlung=_beamstrahlung_model)
+        line.matrix_stability_tol = 0.5
+
     elif radiation_model == 'off':
         pass
     else:
@@ -586,9 +584,9 @@ def load_config(config_file):
     return config_dict
 
 
-def _compensate_energy_loss(tracker, delta0=0.):
-    _configure_tracker_radiation(tracker, 'mean')
-    tracker.compensate_radiation_energy_loss(delta0=delta0)
+def _compensate_energy_loss(line, delta0=0.):
+    _configure_tracker_radiation(line, 'mean')
+    line.compensate_radiation_energy_loss(delta0=delta0)
 
 
 def load_and_process_line(config_dict):
@@ -643,16 +641,17 @@ def load_and_process_line(config_dict):
         print('Using Xtrack-generated twiss table for collimator optics')
         # Use a clean tracker to compute the optics
         # TODO: reduce the copying here
-        optics_tracker = line.copy().build_tracker()
+        optics_line = line.copy()
+        optics_line.build_tracker()
         radiation_mode = run['radiation']
         if comp_eloss:
             # If energy loss compensation is required, taper the lattice
             print('Compensating synchrotron energy loss (tapering mangets)')
             comp_eloss_delta0 = run.get('sr_compensation_delta', 0.0)
-            _compensate_energy_loss(optics_tracker, comp_eloss_delta0)
-            line = optics_tracker.line.copy()
-        _configure_tracker_radiation(optics_tracker, radiation_mode, for_optics=True)
-        twiss = optics_tracker.twiss(**XTRACK_TWISS_KWARGS)
+            _compensate_energy_loss(optics_line, comp_eloss_delta0)
+            line = optics_line.copy()
+        _configure_tracker_radiation(optics_line, radiation_mode, for_optics=True)
+        twiss = optics_line.twiss(**XTRACK_TWISS_KWARGS)
         line.tracker = None
 
 
@@ -667,7 +666,6 @@ def load_and_process_line(config_dict):
                                         material_rename_map=inp['material_rename_map'],
                                         batchMode=run['batch_mode'],
                                         )
-
     g4man.place_all_collimators(line)
     insert_collimator_bounding_apertures(line)
 
@@ -675,11 +673,11 @@ def load_and_process_line(config_dict):
     start_element = config_dict['dist'].get('start_element', None)
     if start_element is not None:
         s0 = line.get_s_position(at_elements=start_element, mode='upstream')
-        # line, s0 = cycle_line(line, start_element)
 
     # Insert additional elements if any are specified:
     insert_elems = config_dict.get('insert_element', None)
     if insert_elems is not None:
+        print('Inserting user-defined elements in the lattice')
         insert_elem_list = insert_elems
         if not isinstance(insert_elem_list, list):
             insert_elem_list = [insert_elem_list, ]
@@ -689,11 +687,10 @@ def load_and_process_line(config_dict):
 
     # Insert beam-beam lenses if any are specified:
     _insert_beambeam_elements(line, config_dict, twiss, emit)
-    # embed()
     return line, ref_part, start_element, s0
 
 
-def load_xsuite_csv_particles(dist_file, ref_particle, tracker, element, num_part, capacity, keep_ref_particle=False, copy_file=False):
+def load_xsuite_csv_particles(dist_file, ref_particle, line, element, num_part, capacity, keep_ref_particle=False, copy_file=False):
 
     orig_file_path = Path(dist_file)
     if copy_file:
@@ -715,8 +712,8 @@ def load_xsuite_csv_particles(dist_file, ref_particle, tracker, element, num_par
     #     mass0 = ref_particle.mass0
     #     q0 = ref_particle.q0
 
-    at_element = tracker.line.element_names.index(element)
-    start_s = tracker.line.get_s_position(at_elements=at_element, mode="upstream")
+    at_element = line.element_names.index(element)
+    start_s = line.get_s_position(at_elements=at_element, mode="upstream")
 
     # Need to make sure there is enough space allocated
     # particles = xp.Particles(_capacity=capacity,
@@ -727,9 +724,8 @@ def load_xsuite_csv_particles(dist_file, ref_particle, tracker, element, num_par
     #                          at_element = np.full(num_part, fill_value=start_s),
     #                          **{var: part_df[var][:num_part] for var in part_df.columns})
     
-    particles = xp.build_particles(
+    particles = line.build_particles(
                 _capacity=capacity,
-                tracker=tracker,
                 particle_ref=ref_particle,
                 mode='set',
                 x = part_df['x'].values[:num_part],
@@ -797,16 +793,15 @@ def load_gpdist_distr(dist_file, ref_particle, capacity):
     return particles
 
 
-def _generate_direct_halo(tracker, ref_particle, coll_name, 
+def _generate_direct_halo(line, ref_particle, coll_name, 
                           emitt_x, emitt_y, radiation_mode,
                           side, imp_par, 
                           spread, spread_symmetric, spread_isnormed, 
                           sigma_z, nsigma_for_offmom, 
                           num_particles, capacity):
     
-    _configure_tracker_radiation(tracker, radiation_mode, for_optics=True)
+    _configure_tracker_radiation(line, radiation_mode, for_optics=True)
 
-    line = tracker.line
     g4man = line.element_dict[coll_name].interaction_process.g4manager
 
     if not coll_name in g4man.collimators:
@@ -839,7 +834,7 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     # Compute the extent of the halo
     coll_index = line.element_names.index(coll_name)
     match_element_index = coll_index if converging else coll_index + 1
-    twiss = tracker.twiss(**XTRACK_TWISS_KWARGS)
+    twiss = line.twiss(**XTRACK_TWISS_KWARGS)
 
     coll_s = line.get_s_position(at_elements=coll_name)
     coll_length = coll_dict['length']
@@ -913,10 +908,11 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
         npart = int(_round_funcs[i](num_particles / nsides))
         abs_coords.append(xp.generate_2D_pencil_with_absolute_cut(
                 npart, 
-                plane=abs_plane, 
+                line = line,
+                plane=abs_plane,
                 absolute_cut=factor*halo_cut_inner + coll_dict[abs_plane], 
                 dr_sigmas=dr_sigmas,
-                side=_ss, tracker=tracker,
+                side=_ss,
                 nemitt_x=emitt_x, nemitt_y=emitt_y,
                 at_element=coll_name, match_at_s=match_s,
                 **XTRACK_TWISS_KWARGS,))
@@ -947,9 +943,9 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     assert sigma_z >= 0
     if sigma_z > 0:
         print(f'Paramter sigma_z > 0, preparing a longitudinal distribution matched to the RF bucket')
-        zeta_match, delta_match = xp.generate_longitudinal_coordinates(
+        zeta_match, delta_match = line.generate_longitudinal_coordinates(
         num_particles=num_particles, distribution='gaussian',
-        sigma_z=sigma_z, tracker=tracker)
+        sigma_z=sigma_z)
     else:
         zeta_match = delta_match = 0
 
@@ -960,9 +956,8 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     coord_dict['zeta'] = zeta + zeta_co + zeta_match
     coord_dict['delta'] = delta + delta_co + delta_match
 
-    part = xp.build_particles(
+    part = line.build_particles(
             _capacity=capacity,
-            tracker=tracker,
             x=coord_dict['x'], px=coord_dict['px'],
             x_norm=coord_dict['x_norm'], px_norm=coord_dict['px_norm'],
             y=coord_dict['y'], py=coord_dict['py'],
@@ -1029,7 +1024,7 @@ def _generate_direct_halo(tracker, ref_particle, coll_name,
     return part
 
 
-def _prepare_direct_halo(config_dict, tracker, ref_particle, element, emitt_x, emitt_y, num_particles, capacity):
+def _prepare_direct_halo(config_dict, line, ref_particle, element, emitt_x, emitt_y, num_particles, capacity):
     # The tracker is needed to compute optics here, so set the radiation mode appropriately
     radiation_mode = config_dict['run']['radiation']
     coll_name = element
@@ -1066,27 +1061,27 @@ def _prepare_direct_halo(config_dict, tracker, ref_particle, element, emitt_x, e
     elif side_def == 'both':
         side = '+-'
 
-    part = _generate_direct_halo(tracker, ref_particle, coll_name, 
-                                emitt_x, emitt_y, radiation_mode,
-                                side, imp_par, 
-                                spread, spread_symmetric, spread_isnormed, 
-                                sigma_z, nsigma_for_offmom, 
-                                num_particles, capacity)
+    part = _generate_direct_halo(line, ref_particle, coll_name, 
+                                 emitt_x, emitt_y, radiation_mode,
+                                 side, imp_par, 
+                                 spread, spread_symmetric, spread_isnormed, 
+                                 sigma_z, nsigma_for_offmom, 
+                                 num_particles, capacity)
     return part
 
-def _prepare_matched_beam(config_dict, tracker, ref_particle, element, emitt_x, emitt_y, num_particles, capacity):
+def _prepare_matched_beam(config_dict, line, ref_particle, element, emitt_x, emitt_y, num_particles, capacity):
     print(f'Preparing a matched Gaussian beam at {element}')
     sigma_z = config_dict['dist']['parameters']['sigma_z']
     radiation_mode =  config_dict['run'].get('radiation', 'off')
 
-    _configure_tracker_radiation(tracker, radiation_mode, for_optics=True)
+    _configure_tracker_radiation(line, radiation_mode, for_optics=True)
 
     x_norm, px_norm = xp.generate_2D_gaussian(num_particles)
     y_norm, py_norm = xp.generate_2D_gaussian(num_particles)
     
     # The longitudinal closed orbit needs to be manually supplied for now
-    twiss = tracker.twiss(**XTRACK_TWISS_KWARGS)
-    element_index = tracker.line.element_names.index(element)
+    twiss = line.twiss(**XTRACK_TWISS_KWARGS)
+    element_index = line.element_names.index(element)
     zeta_co = twiss.zeta[element_index] 
     delta_co = twiss.delta[element_index] 
 
@@ -1095,13 +1090,13 @@ def _prepare_matched_beam(config_dict, tracker, ref_particle, element, emitt_x, 
     if sigma_z > 0:
         print(f'Paramter sigma_z > 0, preparing a longitudinal distribution matched to the RF bucket')
         zeta, delta = xp.generate_longitudinal_coordinates(
+                        line=line,
                         num_particles=num_particles, distribution='gaussian',
-                        sigma_z=sigma_z, particle_ref=ref_particle, tracker=tracker)
+                        sigma_z=sigma_z, particle_ref=ref_particle)
 
-    part = xp.build_particles(
+    part = line.build_particles(
         _capacity=capacity,
         particle_ref=ref_particle,
-        tracker=tracker,
         x_norm=x_norm, px_norm=px_norm,
         y_norm=y_norm, py_norm=py_norm,
         zeta=zeta + zeta_co,
@@ -1114,7 +1109,7 @@ def _prepare_matched_beam(config_dict, tracker, ref_particle, element, emitt_x, 
 
     return part
 
-def generate_xpart_particles(config_dict, tracker, ref_particle, capacity):
+def generate_xpart_particles(config_dict, line, ref_particle, capacity):
     dist_params = config_dict['dist']['parameters']
     num_particles = config_dict['run']['nparticles']
     element = config_dict['dist']['start_element']
@@ -1123,15 +1118,15 @@ def generate_xpart_particles(config_dict, tracker, ref_particle, capacity):
     if isinstance(emittance, dict): # Normalised emittances
         ex, ey = emittance['x'], emittance['y']
     else:
-        ex = ey = emittance 
+        ex = ey = emittance
 
     particles = None
     dist_type = dist_params.get('type', '')
     if dist_type in ('halo_point', 'halo_point_momentum', 'halo_direct'):
-        particles = _prepare_direct_halo(config_dict, tracker, ref_particle, 
+        particles = _prepare_direct_halo(config_dict, line, ref_particle, 
                                          element, ex, ey, num_particles, capacity)
     elif dist_type == 'matched_beam':
-        particles = _prepare_matched_beam(config_dict, tracker, ref_particle, 
+        particles = _prepare_matched_beam(config_dict, line, ref_particle, 
                                           element, ex, ey, num_particles, capacity)
     else:
         raise Exception('Cannot process beam distribution')
@@ -1144,7 +1139,7 @@ def generate_xpart_particles(config_dict, tracker, ref_particle, capacity):
 
     return particles
 
-def load_xsuite_particles(config_dict, tracker, ref_particle, capacity):
+def load_xsuite_particles(config_dict, line, ref_particle, capacity):
     dist_params = config_dict['dist']['parameters']
     num_particles = config_dict['run']['nparticles']
     element = config_dict['dist']['start_element']
@@ -1153,13 +1148,13 @@ def load_xsuite_particles(config_dict, tracker, ref_particle, capacity):
     keep_ref_part = dist_params['keep_ref_particle']
     copy_file = dist_params['copy_file']
 
-    part = load_xsuite_csv_particles(dist_file, ref_particle, tracker, element, num_particles, capacity, 
+    part = load_xsuite_csv_particles(dist_file, ref_particle, line, element, num_particles, capacity, 
                                      keep_ref_particle=keep_ref_part, copy_file=copy_file)
     
     return part
     
 
-def prepare_particles(config_dict, tracker, ref_particle):
+def prepare_particles(config_dict, line, ref_particle):
     dist = config_dict['dist']
     capacity = config_dict['run']['max_particles']
 
@@ -1168,24 +1163,23 @@ def prepare_particles(config_dict, tracker, ref_particle):
     if dist['source'] == 'gpdist':
         particles = load_gpdist_distr(dist['file'], ref_particle, capacity)
     elif dist['source'] == 'xsuite':
-        particles = load_xsuite_particles(config_dict, tracker, ref_particle, capacity)
+        particles = load_xsuite_particles(config_dict, line, ref_particle, capacity)
     elif dist['source'] == 'internal':
-        particles = generate_xpart_particles(config_dict, tracker, ref_particle, capacity)
+        particles = generate_xpart_particles(config_dict, line, ref_particle, capacity)
     else:
         raise ValueError('Unsupported distribution source: {}. Supported ones are: {}'
                          .format(dist['soruce'], ','.join(_supported_dist)))
     return particles
 
 
-def build_tracker(line):
+def build_collimation_tracker(line):
     # Chose a context
     context = xo.ContextCpu()  # Only support CPU for Geant4 coupling TODO: maybe not needed anymore?
     # Transfer lattice on context and compile tracking code
     global_aper_limit = 1e3  # Make this large to ensure particles lost on aperture markers
 
-    tracker = line.build_tracker(_context=context,
-                                 global_xy_limit=global_aper_limit)
-    return tracker
+    line.build_tracker(_context=context)
+    line.config.global_xy_limit=global_aper_limit
 
 
 def _compute_parameter(parameter, expression, turn, max_turn, extra_variables={}):
@@ -1242,12 +1236,11 @@ def _prepare_dynamic_element_change(line, twiss_table, gemit_x, gemit_y, change_
             for ele_name in element_names:
                 ebe_change_dict[ele_name] = parameter_values
         else:
+            ebe_keys = set(twiss_table._col_names) - {'W_matrix', 'name'}
+            scalar_keys = (set(twiss_table._data.keys()) 
+                           - set(twiss_table._col_names) 
+                           - {'R_matrix', 'values_at', 'particle_on_co'})
 
-            ebe_keys = twiss_table._ebe_fields - {'W_matrix', 'name'}
-            scalar_keys = set(twiss_table.keys() -   
-                          twiss_table._ebe_fields - 
-                          {'R_matrix', '_ebe_fields', 'R_matrix', 'values_at'})
-            
             # If the change is computed on the fly, iterative changes
             # are permitted, e.g a = a + 5, so must account for different starting values
             for ele_name in element_names:
@@ -1298,15 +1291,14 @@ def _apply_dynamic_element_change(line, tbt_change_list, turn):
             _set_element_parameter(element, param_name, param_index, param_val)
 
 
-def run(config_dict, tracker, particles, ref_part, start_element, s0):
+def run(config_dict, line, particles, ref_part, start_element, s0):
     radiation_mode = config_dict['run']['radiation']
     beamstrahlung_mode = config_dict['run']['beamstrahlung']
 
     nturns = config_dict['run']['turns']
-    line = tracker.line
     
-    _configure_tracker_radiation(tracker, radiation_mode, for_optics=True)
-    twiss_table = tracker.twiss(**XTRACK_TWISS_KWARGS)
+    _configure_tracker_radiation(line, radiation_mode, for_optics=True)
+    twiss_table = line.twiss(**XTRACK_TWISS_KWARGS)
 
     emittance = config_dict['beam']['emittance']
     if isinstance(emittance, dict):
@@ -1328,7 +1320,7 @@ def run(config_dict, tracker, particles, ref_part, start_element, s0):
             tbt_change_list = _prepare_dynamic_element_change(line, twiss_table, gemit_x, gemit_y, dyn_change_elem, nturns)
 
     
-    _configure_tracker_radiation(tracker, radiation_mode, beamstrahlung_mode, for_optics=False)
+    _configure_tracker_radiation(line, radiation_mode, beamstrahlung_mode, for_optics=False)
     if radiation_mode == 'quantum':
         # Explicitly initialise the random number generator for the quantum mode
         seed = config_dict['run']['seed']
@@ -1348,7 +1340,7 @@ def run(config_dict, tracker, particles, ref_part, start_element, s0):
     for turn in range(nturns):
         print(f'Start turn {turn}, Survivng particles: {particles._num_active_particles}')
         if tbt_change_list is not None:
-            _apply_dynamic_element_change(tracker.line, tbt_change_list, turn)
+            _apply_dynamic_element_change(line, tbt_change_list, turn)
 
         #######################################################################
         # print(tbt_change_list)
@@ -1358,9 +1350,9 @@ def run(config_dict, tracker, particles, ref_part, start_element, s0):
         #########################################################################
         
         if turn == 0 and particles.start_tracking_at_element < 0:
-            tracker.track(particles, ele_start=start_element, num_turns=1)
+            line.track(particles, ele_start=start_element, num_turns=1)
         else:
-            tracker.track(particles, num_turns=1)
+            line.track(particles, num_turns=1)
 
         if particles._num_active_particles == 0:
             print(f'All particles lost by turn {turn}, teminating.')
@@ -1379,7 +1371,7 @@ def run(config_dict, tracker, particles, ref_part, start_element, s0):
 
     aper_interp = config_dict['run']['aperture_interp']
     if aper_interp is not None:
-        loss_refiner = xt.LossLocationRefinement(tracker, n_theta=360,
+        loss_refiner = xt.LossLocationRefinement(line, n_theta=360,
                                                  r_max=1, dr=50e-6,
                                                  ds=aper_interp, 
                                                  allowed_backtrack_types=(xt.elements.Multipole,
@@ -1739,14 +1731,14 @@ def execute(config_dict):
     config_dict = CONF_SCHEMA.validate(config_dict)
     
     line, ref_part, start_elem, s0 = load_and_process_line(config_dict)
-    tracker = build_tracker(line)
+    build_collimation_tracker(line)
 
-    particles = prepare_particles(config_dict, tracker, ref_part)
+    particles = prepare_particles(config_dict, line, ref_part)
 
     output_file = config_dict['run']['outputfile']
 
     # modifies the Particles object in place
-    run(config_dict, tracker, particles, ref_part, start_elem, s0)
+    run(config_dict, line, particles, ref_part, start_elem, s0)
 
     plot_lossmap(output_file, extra_ranges=[(33000, 35500), (44500, 46500)], norm='total')
 
