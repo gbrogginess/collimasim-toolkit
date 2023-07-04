@@ -561,6 +561,11 @@ def _read_particles_hdf(filename):
     return pd.read_hdf(filename, key='particles')
 
 
+def _read_emittance_hdf(filename):
+    # load table of second order moments and drop calculated emittances, as they will be recomputed
+    return pd.read_hdf(filename, key='emittance').drop(columns=['emittance_x', 'emittance_y'])
+
+
 def _save_emittance_hdf(emittance_df, filename='part'):
     if not filename.endswith('.hdf'):
         filename += '.hdf'
@@ -1303,6 +1308,9 @@ def _apply_dynamic_element_change(line, tbt_change_list, turn):
             _set_element_parameter(element, param_name, param_index, param_val)
 
 
+def _rms_emit(xsq, pxsq, xpxsq, no_particles):
+    return np.sqrt((xsq/no_particles)*(pxsq/no_particles) - (xpxsq/no_particles)**2)
+
 def _compute_second_order_moments(particle_df):
 
     xsq = np.sum(particle_df['x']**2)
@@ -1323,8 +1331,8 @@ def _compute_second_order_moments(particle_df):
         'ypysq': ypysq,
         'pysq': pysq,
         'no_particles': no_particles,
-        'emittance_x': np.sqrt((xsq/no_particles)*(pxsq/no_particles) - (xpxsq/no_particles)**2),
-        'emittance_y': np.sqrt((ysq/no_particles)*(pysq/no_particles) - (ypysq/no_particles)**2)
+        'emittance_x': _rms_emit(xsq, pxsq, xpxsq, no_particles),
+        'emittance_y': _rms_emit(ysq, pysq, ypysq, no_particles)
     }
 
 
@@ -1451,7 +1459,7 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
 
 
 def load_output(directory, output_file, match_pattern='*part.hdf*',
-                imax=None, load_lossmap=True, load_particles=False):
+                imax=None, load_lossmap=True, load_particles=False, load_emittance=False):
 
     t0 = time.time()
 
@@ -1496,6 +1504,21 @@ def load_output(directory, output_file, match_pattern='*part.hdf*',
             pdf) for pdf in part_dataframes]
         print('Particles load finished, merging...')
         part_merged = xp.Particles.merge(part_objects)
+
+    if load_emittance:
+        print(f'Loading emittance...')
+        p = Pool()
+        emit_dfs = p.map(_read_emittance_hdf, part_hdf_files)
+
+        print('Emittance Dataframes load finished, merging...')
+        emittance_df = pd.concat(emit_dfs).groupyby(by='turn').sum().reset_index().set_index('turn')
+        for plane in ['x', 'y']:
+            emittance_df[f'emittance_{plane}'] = _rms_emit(
+                emittance_df[f"{plane}sq"],
+                emittance_df[f"p{plane}sq"],
+                emittance_df[f"{plane}p{plane}sq"],
+                emittance_df["no_particles"],
+            )
 
     # Load the loss maps
     lmd_merged = None
