@@ -571,11 +571,7 @@ def _save_emittance_hdf(emittance_df, filename='part'):
         filename += '.hdf'
 
     fpath = Path(filename)
-    # Remove a potential old file as the file is open in append mode
-    if fpath.exists():
-        fpath.unlink()
-    emittance_df.to_hdf(fpath, key='emittance', format='table', mode='a',
-                  complevel=9, complib='blosc')
+    emittance_df.to_hdf(fpath, key='emittance', format='table', mode='a')
 
 
 def _load_lossmap_hdf(filename):
