@@ -571,7 +571,7 @@ def _save_emittance_hdf(emittance_df, filename='part'):
         filename += '.hdf'
 
     fpath = Path(filename)
-    emittance_df.to_hdf(fpath, key='emittance', format='table', mode='a')
+    emittance_df.to_hdf(fpath, key='emittance', mode='a')
 
 
 def _load_lossmap_hdf(filename):
