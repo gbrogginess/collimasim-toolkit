@@ -571,7 +571,8 @@ def _save_emittance_hdf(emittance_df, filename='part'):
         filename += '.hdf'
 
     fpath = Path(filename)
-    emittance_df.to_hdf(fpath, key='emittance', mode='a')
+    emittance_df.to_hdf(fpath, key='emittance', mode='a', format='table',
+                         complevel=9, complib='blosc')
 
 
 def _load_lossmap_hdf(filename):
@@ -1378,7 +1379,7 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
     t0 = time.time()
     # Track (saving turn-by-turn data)
 
-    emittance_df = pd.DataFrame(index=range(nturns), columns=['xsq', 'xpxsq', 'pxsq', 'ysq', 'ypysq', 'pysq', 'no_particles', 'emittance_x', 'emittance_y'])
+    emittance_df = pd.DataFrame(index=range(nturns), columns=['xsq', 'xpxsq', 'pxsq', 'ysq', 'ypysq', 'pysq', 'no_particles', 'emittance_x', 'emittance_y']).astype(float)
     for turn in range(nturns):
         print(f'Start turn {turn}, Survivng particles: {particles._num_active_particles}')
         if tbt_change_list is not None:
