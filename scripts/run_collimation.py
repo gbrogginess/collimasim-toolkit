@@ -563,7 +563,7 @@ def _read_particles_hdf(filename):
 
 def _read_emittance_hdf(filename):
     # load table of second order moments and drop calculated emittances, as they will be recomputed
-    return pd.read_hdf(filename, key='emittance').drop(columns=['emittance_x', 'emittance_y'])
+    return pd.read_hdf(filename, key='emittance').drop(columns=['emittance_x', 'emittance_y']).reset_index(names='turn')
 
 
 def _save_emittance_hdf(emittance_df, filename='part'):
@@ -1508,7 +1508,8 @@ def load_output(directory, output_file, match_pattern='*part.hdf*',
         emit_dfs = p.map(_read_emittance_hdf, part_hdf_files)
 
         print('Emittance Dataframes load finished, merging...')
-        emittance_df = pd.concat(emit_dfs).groupyby(by='turn').sum().reset_index().set_index('turn')
+        emittance_df = pd.concat(emit_dfs, ignore_index=True)
+        emittance_df = emittance_df.groupby(by='turn').sum().reset_index().set_index('turn')
         for plane in ['x', 'y']:
             emittance_df[f'emittance_{plane}'] = _rms_emit(
                 emittance_df[f"{plane}sq"],
@@ -1939,7 +1940,7 @@ def main():
     elif sys.argv[1] == '--merge':
         match_pattern = '*part.hdf*'
         output_file = 'part_merged.hdf'
-        load_output(sys.argv[2], output_file, match_pattern=match_pattern, load_particles=True)
+        load_output(sys.argv[2], output_file, match_pattern=match_pattern, load_particles=True, load_emittance=True)
     elif sys.argv[1] == '--plot':
         plot_lossmap(sys.argv[2], extra_ranges=[(33000, 35500), (44500, 46500)], norm='total')
     else:
