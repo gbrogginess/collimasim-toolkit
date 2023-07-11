@@ -1576,6 +1576,7 @@ def load_output(directory, output_file, match_pattern='*part.hdf*',
 
     _save_particles_hdf(particles=part_merged,
                         lossmap_data=lmd_merged, filename=output_file)
+    _save_emittance_hdf(emittance_df, filename=output_file)
 
     print('Directories visited: {}, files loaded: {}'.format(
         dirs_visited, files_loaded))
