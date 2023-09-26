@@ -75,8 +75,8 @@ INPUT_SCHEMA = Schema({'machine': str,
 BEAM_SCHEMA = Schema({'particle': _check_supported_particle,
                       'momentum': Use(to_float),
                       'emittance': Or(Use(to_float), {'x': Use(to_float), 'y': Use(to_float)}),
-                      Optional('bunch_intensity', default=0): Use(int),
-                      Optional('number_bunches', default=0): Use(int),
+                      Optional('bunch_intensity', default=0): Use(float),
+                      Optional('number_bunches', default=0): Use(float),
                       })
 
 GPDIST_DIST_SCHEMA = Schema({'file': os.path.exists})
