@@ -75,6 +75,8 @@ INPUT_SCHEMA = Schema({'machine': str,
 BEAM_SCHEMA = Schema({'particle': _check_supported_particle,
                       'momentum': Use(to_float),
                       'emittance': Or(Use(to_float), {'x': Use(to_float), 'y': Use(to_float)}),
+                      Optional('bunch_intensity', default=0): Use(int),
+                      Optional('number_bunches', default=0): Use(int),
                       })
 
 GPDIST_DIST_SCHEMA = Schema({'file': os.path.exists})
@@ -798,7 +800,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
                           side, imp_par, 
                           spread, spread_symmetric, spread_isnormed, 
                           sigma_z, nsigma_for_offmom, 
-                          num_particles, capacity):
+                          num_particles, capacity, weights):
     
     _configure_tracker_radiation(line, radiation_mode, for_optics=True)
 
@@ -966,6 +968,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
             nemitt_x=emitt_x, nemitt_y=emitt_y,
             at_element=coll_name,
             match_at_s=match_s,
+            weight=weights,
             **XTRACK_TWISS_KWARGS,
             )
 
@@ -1024,7 +1027,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     return part
 
 
-def _prepare_direct_halo(config_dict, line, ref_particle, element, emitt_x, emitt_y, num_particles, capacity):
+def _prepare_direct_halo(config_dict, line, ref_particle, element, emitt_x, emitt_y, num_particles, capacity, weights):
     # The tracker is needed to compute optics here, so set the radiation mode appropriately
     radiation_mode = config_dict['run']['radiation']
     coll_name = element
@@ -1066,10 +1069,10 @@ def _prepare_direct_halo(config_dict, line, ref_particle, element, emitt_x, emit
                                  side, imp_par, 
                                  spread, spread_symmetric, spread_isnormed, 
                                  sigma_z, nsigma_for_offmom, 
-                                 num_particles, capacity)
+                                 num_particles, capacity, weights)
     return part
 
-def _prepare_matched_beam(config_dict, line, ref_particle, element, emitt_x, emitt_y, num_particles, capacity):
+def _prepare_matched_beam(config_dict, line, ref_particle, element, emitt_x, emitt_y, num_particles, capacity, weights):
     print(f'Preparing a matched Gaussian beam at {element}')
     sigma_z = config_dict['dist']['parameters']['sigma_z']
     radiation_mode =  config_dict['run'].get('radiation', 'off')
@@ -1104,6 +1107,7 @@ def _prepare_matched_beam(config_dict, line, ref_particle, element, emitt_x, emi
         nemitt_x=emitt_x,
         nemitt_y=emitt_y,
         at_element=element,
+        weight=weights
         **XTRACK_TWISS_KWARGS,
         )
 
@@ -1113,6 +1117,12 @@ def generate_xpart_particles(config_dict, line, ref_particle, capacity):
     dist_params = config_dict['dist']['parameters']
     num_particles = config_dict['run']['nparticles']
     element = config_dict['dist']['start_element']
+    bunch_intensity = config_dict['beam']['bunch_intensity']
+
+    if bunch_intensity > 0:
+        weights = bunch_intensity/num_particles
+    else:
+        weights = 0
 
     emittance = config_dict['beam']['emittance']
     if isinstance(emittance, dict): # Normalised emittances
@@ -1124,10 +1134,10 @@ def generate_xpart_particles(config_dict, line, ref_particle, capacity):
     dist_type = dist_params.get('type', '')
     if dist_type in ('halo_point', 'halo_point_momentum', 'halo_direct'):
         particles = _prepare_direct_halo(config_dict, line, ref_particle, 
-                                         element, ex, ey, num_particles, capacity)
+                                         element, ex, ey, num_particles, capacity, weights)
     elif dist_type == 'matched_beam':
         particles = _prepare_matched_beam(config_dict, line, ref_particle, 
-                                          element, ex, ey, num_particles, capacity)
+                                          element, ex, ey, num_particles, capacity, weights)
     else:
         raise Exception('Cannot process beam distribution')
 
