@@ -75,8 +75,8 @@ INPUT_SCHEMA = Schema({'machine': str,
 BEAM_SCHEMA = Schema({'particle': _check_supported_particle,
                       'momentum': Use(to_float),
                       'emittance': Or(Use(to_float), {'x': Use(to_float), 'y': Use(to_float)}),
-                      Optional('bunch_intensity', default=0): Use(float),
-                      Optional('number_bunches', default=0): Use(float),
+                      Optional('bunch_intensity', default=0.): Use(to_int),
+                      Optional('number_bunches', default=0.): Use(to_int),
                       })
 
 GPDIST_DIST_SCHEMA = Schema({'file': os.path.exists})
@@ -1109,7 +1109,7 @@ def _prepare_matched_beam(config_dict, line, ref_particle, element, emitt_x, emi
         nemitt_x=emitt_x,
         nemitt_y=emitt_y,
         at_element=element,
-        weight=weights
+        weight=weights,
         **XTRACK_TWISS_KWARGS,
         )
 
