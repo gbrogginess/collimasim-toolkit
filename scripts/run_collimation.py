@@ -736,6 +736,7 @@ def load_xsuite_csv_particles(dist_file, ref_particle, line, element, num_part, 
                 py = part_df['py'].values[:num_part],
                 zeta = part_df['zeta'].values[:num_part],
                 delta = part_df['delta'].values[:num_part],
+                weight = part_df['weight'].values[:num_part], # format of xsuite particle csv to be standardised to decide how weights should be handled
                 **XTRACK_TWISS_KWARGS,
             )
     
@@ -775,7 +776,7 @@ def load_gpdist_distr(dist_file, ref_particle, capacity):
     # TODO: Are the px, py coordinates the same as the ones in xtrack?
     coords.rename({'xp': 'px', 'yp': 'py'}, axis=1, inplace=True)
 
-    xtrack_columns = ['x', 'px', 'y', 'py', 'delta', 'zeta']
+    xtrack_columns = ['x', 'px', 'y', 'py', 'delta', 'zeta', 'weight']
     coords = coords[xtrack_columns]
 
     particles = xp.Particles(
@@ -788,6 +789,7 @@ def load_gpdist_distr(dist_file, ref_particle, capacity):
         y=coords['y'],
         py=coords['py'],
         zeta=coords['zeta'],
+        weight=coords['weight']
     )
 
     particles.delta[:len(coords['delta'])] = coords['delta']
