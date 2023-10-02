@@ -204,45 +204,45 @@ PART_DATA_VARS = ['s', 'x', 'y', 'px', 'py', 'zeta', 'delta',
 
 # FCC_EE_WARM_REGIONS = np.array([0, 9E9])
 FCC_EE_WARM_REGIONS = np.array([
-    [0.0, 2.2002250210956813], [2.900225021095681, 2.9802250210956807], 
+    [0.0, 2.2002250210956813], [2.900225021095681, 2.9802250210956807],
     [4.230225021095681, 4.310225021095681], [5.560225021095681, 5.860225021095681],
-    [7.110225021095681, 7.1902250210956815], [8.440225021095682, 14.01430698619792], 
-    [17.51430698619792, 21.054141203075883], [24.554141203075883, 64.54594481671067], 
-    [68.04594481671067, 70.34999097862814], [73.84999097862814, 114.10750772564008], 
-    [117.60750772564008, 22296.16304172309], [22299.66304172309, 22359.90116677595], 
-    [22363.40116677595, 22466.117401781252], [22469.617401781252, 22537.590351601168], 
-    [22541.090351601168, 22677.974916715677], [22681.474916715677, 22785.08912369255], 
-    [22786.33912369255, 22786.41912369255], [22787.66912369255, 22787.969123692554], 
-    [22789.219123692554, 22789.29912369255], [22790.54912369255, 22790.62912369256],  
-    [22791.32912369256, 22795.729573734752], [22796.429573734753, 22796.50957373476], 
-    [22797.75957373476, 22797.83957373476], [22799.08957373476, 22799.38957373476], 
-    [22800.63957373476, 22800.71957373476], [22801.96957373476, 22807.543655699865], 
-    [22811.043655699865, 22814.583489916746], [22818.083489916746, 22858.075293530368], 
-    [22861.575293530368, 22863.87933969229], [22867.37933969229, 22907.63685643929], 
-    [22911.13685643929, 45089.692390437995], [45093.192390437995, 45153.43051549084], 
-    [45156.93051549084, 45259.646750496155], [45263.146750496155, 45331.11970031608], 
-    [45334.61970031608, 45471.50426543059], [45475.00426543059, 45578.61847240747], 
-    [45579.86847240747, 45579.94847240747], [45581.19847240747, 45581.498472407475], 
-    [45582.748472407475, 45582.82847240748], [45584.07847240748, 45584.158472407486], 
-    [45584.85847240748, 45589.25892244966], [45589.95892244966, 45590.03892244966], 
-    [45591.28892244966, 45591.36892244966], [45592.61892244966, 45592.91892244967], 
-    [45594.16892244967, 45594.248922449675], [45595.498922449675, 45601.07300441477], 
-    [45604.57300441477, 45608.11283863164], [45611.61283863164, 45651.604642245286], 
-    [45655.104642245286, 45657.40868840722], [45660.90868840722, 45701.16620515424], 
-    [45704.66620515424, 67883.22174475367], [67886.72174475367, 67946.95986980652], 
-    [67950.45986980652, 68053.17610481184], [68056.67610481184, 68124.64905463177], 
-    [68128.14905463177, 68265.03361974626], [68268.53361974626, 68372.14782672313], 
+    [7.110225021095681, 7.1902250210956815], [8.440225021095682, 14.01430698619792],
+    [17.51430698619792, 21.054141203075883], [24.554141203075883, 64.54594481671067],
+    [68.04594481671067, 70.34999097862814], [73.84999097862814, 114.10750772564008],
+    [117.60750772564008, 22296.16304172309], [22299.66304172309, 22359.90116677595],
+    [22363.40116677595, 22466.117401781252], [22469.617401781252, 22537.590351601168],
+    [22541.090351601168, 22677.974916715677], [22681.474916715677, 22785.08912369255],
+    [22786.33912369255, 22786.41912369255], [22787.66912369255, 22787.969123692554],
+    [22789.219123692554, 22789.29912369255], [22790.54912369255, 22790.62912369256], 
+    [22791.32912369256, 22795.729573734752], [22796.429573734753, 22796.50957373476],
+    [22797.75957373476, 22797.83957373476], [22799.08957373476, 22799.38957373476],
+    [22800.63957373476, 22800.71957373476], [22801.96957373476, 22807.543655699865],
+    [22811.043655699865, 22814.583489916746], [22818.083489916746, 22858.075293530368],
+    [22861.575293530368, 22863.87933969229], [22867.37933969229, 22907.63685643929],
+    [22911.13685643929, 45089.692390437995], [45093.192390437995, 45153.43051549084],
+    [45156.93051549084, 45259.646750496155], [45263.146750496155, 45331.11970031608],
+    [45334.61970031608, 45471.50426543059], [45475.00426543059, 45578.61847240747],
+    [45579.86847240747, 45579.94847240747], [45581.19847240747, 45581.498472407475],
+    [45582.748472407475, 45582.82847240748], [45584.07847240748, 45584.158472407486],
+    [45584.85847240748, 45589.25892244966], [45589.95892244966, 45590.03892244966],
+    [45591.28892244966, 45591.36892244966], [45592.61892244966, 45592.91892244967],
+    [45594.16892244967, 45594.248922449675], [45595.498922449675, 45601.07300441477],
+    [45604.57300441477, 45608.11283863164], [45611.61283863164, 45651.604642245286],
+    [45655.104642245286, 45657.40868840722], [45660.90868840722, 45701.16620515424],
+    [45704.66620515424, 67883.22174475367], [67886.72174475367, 67946.95986980652],
+    [67950.45986980652, 68053.17610481184], [68056.67610481184, 68124.64905463177],
+    [68128.14905463177, 68265.03361974626], [68268.53361974626, 68372.14782672313],
     [68373.39782672313, 68373.47782672313], [68374.72782672313, 68375.02782672313],
-    [68376.27782672313, 68376.35782672314], [68377.60782672314, 68377.68782672312], 
-    [68378.38782672312, 68382.78827676529], [68383.48827676529, 68383.56827676529], 
+    [68376.27782672313, 68376.35782672314], [68377.60782672314, 68377.68782672312],
+    [68378.38782672312, 68382.78827676529], [68383.48827676529, 68383.56827676529],
     [68384.81827676529, 68384.89827676529], [68386.14827676529, 68386.4482767653],
-    [68387.6982767653, 68387.7782767653], [68389.0282767653, 68394.60235873041], 
-    [68398.10235873041, 68401.64219294729], [68405.14219294729, 68445.13399656092], 
-    [68448.63399656092, 68450.93804272286], [68454.43804272286, 68494.69555946988], 
-    [68498.19555946988, 90676.75109905902], [90680.25109905902, 90740.4892241119], 
-    [90743.9892241119, 90846.7054591172], [90850.2054591172, 90918.17840893712], 
-    [90921.67840893712, 91058.5629740516], [91062.0629740516, 91165.67718102848], 
-    [91166.92718102848, 91167.00718102849], [91168.25718102849, 91168.55718102849], 
+    [68387.6982767653, 68387.7782767653], [68389.0282767653, 68394.60235873041],
+    [68398.10235873041, 68401.64219294729], [68405.14219294729, 68445.13399656092],
+    [68448.63399656092, 68450.93804272286], [68454.43804272286, 68494.69555946988],
+    [68498.19555946988, 90676.75109905902], [90680.25109905902, 90740.4892241119],
+    [90743.9892241119, 90846.7054591172], [90850.2054591172, 90918.17840893712],
+    [90921.67840893712, 91058.5629740516], [91062.0629740516, 91165.67718102848],
+    [91166.92718102848, 91167.00718102849], [91168.25718102849, 91168.55718102849],
     [91169.80718102849, 91169.88718102848], [91171.13718102848, 91171.21718102848]])
 
 HLLHC_WARM_REGIONS = np.array([
@@ -316,7 +316,7 @@ class BeamHeater():
         particles.px += -self.max_kick_x + 2 * np.random.uniform(size=len(particles.px)) * self.max_kick_x
         particles.py += -self.max_kick_y + 2 * np.random.uniform(size=len(particles.py)) * self.max_kick_y
 
-CUSTOM_ELEMENTS = {'BeamHeater': BeamHeater} 
+CUSTOM_ELEMENTS = {'BeamHeater': BeamHeater}
 
 try:
     from xcain import laser_interaction as xc
@@ -399,7 +399,7 @@ def _insert_user_element(line, elem_def):
 
     if not isinstance(s_position, list):
         print(f'Inserting {elem_name} ({elem_obj}) at s={s_position} m')
-        line.insert_element(at_s=float(s_position), element=elem_obj, 
+        line.insert_element(at_s=float(s_position), element=elem_obj,
                             name=elem_name)
     else:
         for i, s_pos in enumerate(s_position):
@@ -409,13 +409,13 @@ def _insert_user_element(line, elem_def):
             unique_elem_obj = elements[elem_def['type']](**parameters)
             print(f'Inserting {unique_name} ({unique_elem_obj}) at s={s_pos} m')
 
-            line.insert_element(at_s=float(s_pos), 
-                                element=unique_elem_obj, 
+            line.insert_element(at_s=float(s_pos),
+                                element=unique_elem_obj,
                                 name=unique_name)
-            
+
 def _make_bb_lens(nb, phi, sigma_z, alpha, n_slices, other_beam_q0,
                   sigma_x, sigma_px, sigma_y, sigma_py, beamstrahlung_on=False):
-       
+
     slicer = xf.TempSlicer(n_slices=n_slices, sigma_z=sigma_z, mode="shatilov")
 
     el_beambeam = xf.BeamBeamBiGaussian3D(
@@ -443,7 +443,7 @@ def _make_bb_lens(nb, phi, sigma_z, alpha, n_slices, other_beam_q0,
     el_beambeam.iscollective = True # Disable in twiss
 
     return el_beambeam
-    
+
 
 def _insert_beambeam_elements(line, config_dict, twiss_table, emit):
     beamstrahlung_mode = config_dict['run'].get('beamstrahlung', 'off')
@@ -458,7 +458,7 @@ def _insert_beambeam_elements(line, config_dict, twiss_table, emit):
 
         print('Beam-beam definitions found, installing beam-beam elements at: {}'
               .format(', '.join([dd['at_element'] for dd in beambeam_list])))
-            
+
         for bb_def in beambeam_list:
             element_name = bb_def['at_element']
             # the beam-beam lenses are thin and have no effects on optics so no need to re-compute twiss
@@ -466,7 +466,7 @@ def _insert_beambeam_elements(line, config_dict, twiss_table, emit):
             # get the line index every time as it changes when elements are installed
             element_line_index = line.element_names.index(element_name)
             #element_spos = twiss_table.s[element_twiss_index]
-            
+
             sigmas = twiss_table.get_betatron_sigmas(*emit if hasattr(emit, '__iter__') else (emit, emit))
 
             bb_elem = _make_bb_lens(nb=float(bb_def['bunch_intensity']), 
@@ -480,11 +480,11 @@ def _insert_beambeam_elements(line, config_dict, twiss_table, emit):
                                     sigma_y=sigmas['Sigma33'][element_twiss_index], 
                                     sigma_py=sigmas['Sigma44'][element_twiss_index], 
                                     beamstrahlung_on=beamstrahlung_on)
-            
+
             line.insert_element(index=element_line_index, 
                                 element=bb_elem,
                                 name=f'beambeam_{element_name}')
-        
+
 
 def cycle_line(line, name):
     names = line.element_names.copy()
@@ -563,6 +563,20 @@ def _read_particles_hdf(filename):
     return pd.read_hdf(filename, key='particles')
 
 
+def _read_emittance_hdf(filename):
+    # load table of second order moments and drop calculated emittances, as they will be recomputed
+    return pd.read_hdf(filename, key='emittance').drop(columns=['emittance_x', 'emittance_y']).reset_index(names='turn')
+
+
+def _save_emittance_hdf(emittance_df, filename='part'):
+    if not filename.endswith('.hdf'):
+        filename += '.hdf'
+
+    fpath = Path(filename)
+    emittance_df.to_hdf(fpath, key='emittance', mode='a', format='table',
+                         complevel=9, complib='blosc')
+
+
 def _load_lossmap_hdf(filename):
     keys = ('lossmap_scalar', 'lossmap_aper', 'lossmap_coll')
 
@@ -623,7 +637,7 @@ def load_and_process_line(config_dict):
     with open(inp['xtrack_line'], 'r') as fid:
         line = xt.Line.from_dict(json.load(fid))
     line.particle_ref = ref_part
-    
+
     rf_cavities = line.get_elements_of_type(xt.elements.Cavity)[0]
 
     if run.get('turn_rf_off', False):
@@ -683,7 +697,7 @@ def load_and_process_line(config_dict):
         insert_elem_list = insert_elems
         if not isinstance(insert_elem_list, list):
             insert_elem_list = [insert_elem_list, ]
-        
+
         for elem_def in insert_elem_list:
             _insert_user_element(line, elem_def)
 
@@ -725,7 +739,7 @@ def load_xsuite_csv_particles(dist_file, ref_particle, line, element, num_part, 
     #                          s = np.full(num_part, fill_value=start_s),
     #                          at_element = np.full(num_part, fill_value=start_s),
     #                          **{var: part_df[var][:num_part] for var in part_df.columns})
-    
+
     particles = line.build_particles(
                 _capacity=capacity,
                 particle_ref=ref_particle,
@@ -739,11 +753,11 @@ def load_xsuite_csv_particles(dist_file, ref_particle, line, element, num_part, 
                 weight = part_df['weight'].values[:num_part], # format of xsuite particle csv to be standardised to decide how weights should be handled
                 **XTRACK_TWISS_KWARGS,
             )
-    
+
     particles.start_tracking_at_element = at_element
     particles.at_element = at_element
     particles.s = start_s
-    
+
     return particles
 
 def load_gpdist_distr(dist_file, ref_particle, capacity):
@@ -764,7 +778,7 @@ def load_gpdist_distr(dist_file, ref_particle, capacity):
     coords = coords.iloc[0:loadpart]
 
     # transform the coorindates
-    # The energy is in GeV 
+    # The energy is in GeV
     p0c = ref_particle.p0c
     mass0 = ref_particle.mass0
     q0 = ref_particle.q0
@@ -871,7 +885,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
         momentum_cut = abs((phys_cut_sigma - nsigma_for_offmom)*sigma / disp)
     else:
         momentum_cut = abs(phys_cut / disp) if abs(disp) > 0 else np.nan
-    
+
     if spread_isnormed:
         spread_phys=spread * sigma
     else:
@@ -920,7 +934,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
                 nemitt_x=emitt_x, nemitt_y=emitt_y,
                 at_element=coll_name, match_at_s=match_s,
                 **XTRACK_TWISS_KWARGS,))
-    
+
     coord_dict[f'{abs_plane}'] = np.concatenate([cc[0] for cc in abs_coords])
     coord_dict[f'p{abs_plane}'] = np.concatenate([cc[1] for cc in abs_coords])
 
@@ -1055,9 +1069,9 @@ def _prepare_direct_halo(config_dict, line, ref_particle, element, emitt_x, emit
         spread_isnormed = True
     else:
         raise Exception('Cannot process distribution type')
-    
+
     sigma_z = dist_params['sigma_z']
-    
+
     side_def = dist_params['side']
     if side_def == 'negative':
         side = '-'
@@ -1066,7 +1080,7 @@ def _prepare_direct_halo(config_dict, line, ref_particle, element, emitt_x, emit
     elif side_def == 'both':
         side = '+-'
 
-    part = _generate_direct_halo(line, ref_particle, coll_name, 
+    part = _generate_direct_halo(line, ref_particle, coll_name,
                                  emitt_x, emitt_y, radiation_mode,
                                  side, imp_par, 
                                  spread, spread_symmetric, spread_isnormed, 
@@ -1083,7 +1097,7 @@ def _prepare_matched_beam(config_dict, line, ref_particle, element, emitt_x, emi
 
     x_norm, px_norm = xp.generate_2D_gaussian(num_particles)
     y_norm, py_norm = xp.generate_2D_gaussian(num_particles)
-    
+
     # The longitudinal closed orbit needs to be manually supplied for now
     twiss = line.twiss(**XTRACK_TWISS_KWARGS)
     element_index = line.element_names.index(element)
@@ -1144,7 +1158,7 @@ def generate_xpart_particles(config_dict, line, ref_particle, capacity):
         raise Exception('Cannot process beam distribution')
 
     # TODO: Add offsets here
-    
+
     # Disable this option as the tracking from element is handled
     # separately for consistency with other distribution sources
     particles.start_tracking_at_element = -1
@@ -1162,9 +1176,9 @@ def load_xsuite_particles(config_dict, line, ref_particle, capacity):
 
     part = load_xsuite_csv_particles(dist_file, ref_particle, line, element, num_particles, capacity, 
                                      keep_ref_particle=keep_ref_part, copy_file=copy_file)
-    
+
     return part
-    
+
 
 def prepare_particles(config_dict, line, ref_particle):
     dist = config_dict['dist']
@@ -1217,7 +1231,7 @@ def _collect_element_names(line, match_string, regex_mode=False):
 def _prepare_dynamic_element_change(line, twiss_table, gemit_x, gemit_y, change_dict_list, max_turn):
     if change_dict_list is None:
         return None
-    
+
     tbt_change_list = []
     for change_dict in change_dict_list:
         if not ('element_name' in change_dict) != ('element_regex' in change_dict):
@@ -1240,7 +1254,7 @@ def _prepare_dynamic_element_change(line, twiss_table, gemit_x, gemit_y, change_
         ebe_change_dict = {}
         if Path(change_function).exists():
             turn_no_in, value_in = np.genfromtxt('tbt_params.txt', 
-                                                 converters = {0: int, 1: float}, 
+                                                 converters = {0: int, 1: float},
                                                  unpack=True, comments='#')
             parameter_values = np.interp(range(max_turn), turn_no_in, value_in).tolist()
             # If the the change function is loaded from file,
@@ -1249,8 +1263,8 @@ def _prepare_dynamic_element_change(line, twiss_table, gemit_x, gemit_y, change_
                 ebe_change_dict[ele_name] = parameter_values
         else:
             ebe_keys = set(twiss_table._col_names) - {'W_matrix', 'name'}
-            scalar_keys = (set(twiss_table._data.keys()) 
-                           - set(twiss_table._col_names) 
+            scalar_keys = (set(twiss_table._data.keys())
+                           - set(twiss_table._col_names)
                            - {'R_matrix', 'values_at', 'particle_on_co'})
 
             # If the change is computed on the fly, iterative changes
@@ -1303,12 +1317,40 @@ def _apply_dynamic_element_change(line, tbt_change_list, turn):
             _set_element_parameter(element, param_name, param_index, param_val)
 
 
+def _rms_emit(xsq, pxsq, xpxsq, no_particles):
+    return np.sqrt((xsq/no_particles)*(pxsq/no_particles) - (xpxsq/no_particles)**2)
+
+def _compute_second_order_moments(particle_df):
+
+    xsq = np.sum(particle_df['x']**2)
+    pxsq = np.sum(particle_df['px']**2)
+    xpxsq = np.sum(particle_df['x']*particle_df['px'])
+
+    ysq = np.sum(particle_df['y']**2)
+    pysq = np.sum(particle_df['py']**2)
+    ypysq = np.sum(particle_df['y']*particle_df['py'])
+
+    no_particles = len(particle_df)
+
+    return {
+        'xsq': xsq,
+        'xpxsq': xpxsq,
+        'pxsq': pxsq,
+        'ysq': ysq,
+        'ypysq': ypysq,
+        'pysq': pysq,
+        'no_particles': no_particles,
+        'emittance_x': _rms_emit(xsq, pxsq, xpxsq, no_particles),
+        'emittance_y': _rms_emit(ysq, pysq, ypysq, no_particles)
+    }
+
+
 def run(config_dict, line, particles, ref_part, start_element, s0):
     radiation_mode = config_dict['run']['radiation']
     beamstrahlung_mode = config_dict['run']['beamstrahlung']
 
     nturns = config_dict['run']['turns']
-    
+
     _configure_tracker_radiation(line, radiation_mode, for_optics=True)
     twiss_table = line.twiss(**XTRACK_TWISS_KWARGS)
 
@@ -1331,7 +1373,6 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
                 dyn_change_elem = [dyn_change_elem,]
             tbt_change_list = _prepare_dynamic_element_change(line, twiss_table, gemit_x, gemit_y, dyn_change_elem, nturns)
 
-    
     _configure_tracker_radiation(line, radiation_mode, beamstrahlung_mode, for_optics=False)
     if radiation_mode == 'quantum':
         # Explicitly initialise the random number generator for the quantum mode
@@ -1349,6 +1390,8 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
 
     t0 = time.time()
     # Track (saving turn-by-turn data)
+
+    emittance_df = pd.DataFrame(index=range(nturns), columns=['xsq', 'xpxsq', 'pxsq', 'ysq', 'ypysq', 'pysq', 'no_particles', 'emittance_x', 'emittance_y']).astype(float)
     for turn in range(nturns):
         print(f'Start turn {turn}, Survivng particles: {particles._num_active_particles}')
         if tbt_change_list is not None:
@@ -1360,7 +1403,7 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
         # part_copy.hide_lost_particles()
         # ax.scatter(part_copy.x, part_copy.px, marker='.', label=f'turn {turn}')
         #########################################################################
-        
+
         if turn == 0 and particles.start_tracking_at_element < 0:
             line.track(particles, ele_start=start_element, num_turns=1)
         else:
@@ -1369,6 +1412,11 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
         if particles._num_active_particles == 0:
             print(f'All particles lost by turn {turn}, teminating.')
             break
+
+        # create df of particles and select only surviving initial particles for emittance calculation
+        emit_part = particles.to_pandas()
+        emit_part = emit_part.loc[(emit_part['state'] ==1) & (emit_part['particle_id'] ==emit_part['parent_particle_id'])]
+        emittance_df.loc[turn] = _compute_second_order_moments(emit_part)
 
     print(f'Tracking {nturns} turns done in: {time.time()-t0} s')
     ####################################################
@@ -1405,6 +1453,7 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
     _save_particles_hdf(
         particles, lossmap_data=lossmap_data, filename=output_file)
 
+    _save_emittance_hdf(emittance_df, filename=output_file)
     # Save another file with uninterpolated losses
     # DEBUG
     if ('lossmap' in config_dict
@@ -1419,7 +1468,7 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
 
 
 def load_output(directory, output_file, match_pattern='*part.hdf*',
-                imax=None, load_lossmap=True, load_particles=False):
+                imax=None, load_lossmap=True, load_particles=False, load_emittance=False):
 
     t0 = time.time()
 
@@ -1464,6 +1513,22 @@ def load_output(directory, output_file, match_pattern='*part.hdf*',
             pdf) for pdf in part_dataframes]
         print('Particles load finished, merging...')
         part_merged = xp.Particles.merge(part_objects)
+
+    if load_emittance:
+        print(f'Loading emittance...')
+        p = Pool()
+        emit_dfs = p.map(_read_emittance_hdf, part_hdf_files)
+
+        print('Emittance Dataframes load finished, merging...')
+        emittance_df = pd.concat(emit_dfs, ignore_index=True)
+        emittance_df = emittance_df.groupby(by='turn').sum().reset_index().set_index('turn')
+        for plane in ['x', 'y']:
+            emittance_df[f'emittance_{plane}'] = _rms_emit(
+                emittance_df[f"{plane}sq"],
+                emittance_df[f"p{plane}sq"],
+                emittance_df[f"{plane}p{plane}sq"],
+                emittance_df["no_particles"],
+            )
 
     # Load the loss maps
     lmd_merged = None
@@ -1523,6 +1588,7 @@ def load_output(directory, output_file, match_pattern='*part.hdf*',
 
     _save_particles_hdf(particles=part_merged,
                         lossmap_data=lmd_merged, filename=output_file)
+    _save_emittance_hdf(emittance_df, filename=output_file)
 
     print('Directories visited: {}, files loaded: {}'.format(
         dirs_visited, files_loaded))
@@ -1887,7 +1953,7 @@ def main():
     elif sys.argv[1] == '--merge':
         match_pattern = '*part.hdf*'
         output_file = 'part_merged.hdf'
-        load_output(sys.argv[2], output_file, match_pattern=match_pattern, load_particles=True)
+        load_output(sys.argv[2], output_file, match_pattern=match_pattern, load_particles=True, load_emittance=True)
     elif sys.argv[1] == '--plot':
         plot_lossmap(sys.argv[2], extra_ranges=[(33000, 35500), (44500, 46500)], norm='total')
     else:
