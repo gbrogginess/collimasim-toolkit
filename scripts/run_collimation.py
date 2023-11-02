@@ -861,7 +861,8 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     phys_cut_sigma = phys_cut / sigma
 
 
-    phys_cut_betatron = halfgap + imp_par
+    # phys_cut_betatron = halfgap + imp_par
+    phys_cut_betatron = nsigma_for_offmom * sigma
     if nsigma_for_offmom is not None:
         assert abs(disp) > 0, 'Must have non-zero dispersion for off-mometnum beam'
         momentum_cut = abs((phys_cut_sigma - nsigma_for_offmom)*sigma / disp)
@@ -906,7 +907,8 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     for i, _ss in enumerate(list(side)):
         factor = -1 if _ss == '-' else 1
         npart = int(_round_funcs[i](num_particles / nsides))
-        abs_coords.append(xp.generate_2D_pencil_with_absolute_cut(
+
+        coords = list(xp.generate_2D_pencil_with_absolute_cut(
                 npart, 
                 line = line,
                 plane=abs_plane,
@@ -916,9 +918,18 @@ def _generate_direct_halo(line, ref_particle, coll_name,
                 nemitt_x=emitt_x, nemitt_y=emitt_y,
                 at_element=coll_name, match_at_s=match_s,
                 **XTRACK_TWISS_KWARGS,))
+
+        delta_sign = factor * np.sign(disp)
+        coords[0] += delta_sign * momentum_cut * disp
+        coords[1] += delta_sign * momentum_cut * disp_prime
+        
+        abs_coords.append()
     
     coord_dict[f'{abs_plane}'] = np.concatenate([cc[0] for cc in abs_coords])
     coord_dict[f'p{abs_plane}'] = np.concatenate([cc[1] for cc in abs_coords])
+
+    coord_dict[f'{abs_plane}'] += momentum_cut * disp
+    coord_dict[f'p{abs_plane}'] += momentum_cut * disp_prime
 
     # Other plane: generate a gaussian
     norm_coords = xp.generate_2D_gaussian(num_particles)
@@ -969,7 +980,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
             **XTRACK_TWISS_KWARGS,
             )
 
-    """
+    #"""
     embed()
     import matplotlib.pyplot as plt
     part_for_plot = part.copy()
@@ -1020,7 +1031,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     plt.show()
     embed()
     raise SystemExit()
-    """
+    #"""
     return part
 
 
