@@ -917,12 +917,16 @@ def _generate_direct_halo(line, ref_particle, coll_name,
         factor = -1 if _ss == '-' else 1
         npart = int(_round_funcs[i](num_particles / nsides))
 
+        # tolerance to ensure the cut around the co is strictly > or < 0
+        _abs_cut = halo_cut_inner if abs(halo_cut_inner) > 0 else 1.0e-12
+
         # Generate the required betatron absolute coordinates
+        abs_cut = factor*_abs_cut + twiss[abs_plane][match_element_index]
         coords = list(xp.generate_2D_pencil_with_absolute_cut(
                 npart, 
                 line = line,
                 plane=abs_plane,
-                absolute_cut=factor*halo_cut_inner,# + coll_dict[abs_plane], 
+                absolute_cut=abs_cut, 
                 dr_sigmas=dr_sigmas,
                 side=_ss,
                 nemitt_x=emitt_x, nemitt_y=emitt_y,
@@ -935,13 +939,14 @@ def _generate_direct_halo(line, ref_particle, coll_name,
         delta_sign = factor * np.sign(disp)
         coords[0] += delta_sign * momentum_cut * disp
         coords[1] += delta_sign * momentum_cut * disp_prime
-        coords.append(delta_sign * momentum_cut)
+        coords.append(np.full(npart, delta_sign * momentum_cut))
         
         abs_coords.append(coords)
     
     coord_dict[f'{abs_plane}'] = np.concatenate([cc[0] for cc in abs_coords])
     coord_dict[f'p{abs_plane}'] = np.concatenate([cc[1] for cc in abs_coords])
     coord_dict['delta'] = np.concatenate([cc[2] for cc in abs_coords])
+    coord_dict['zeta'] = 0.0
 
     # Other plane: generate a gaussian
     norm_coords = xp.generate_2D_gaussian(num_particles)
