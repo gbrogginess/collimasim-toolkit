@@ -909,7 +909,6 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     else:
         abs_plane, norm_plane = 'y', 'x'
 
-    embed()
     # Collimator plane: generate pencil distribution in absolute coordinates
     abs_coords = []
     nsides = len(side) # 1 or 2
@@ -979,7 +978,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
             **XTRACK_TWISS_KWARGS,
             )
 
-    #"""
+    """
     embed()
     import matplotlib.pyplot as plt
     part_for_plot = part.copy()
@@ -1030,7 +1029,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     plt.show()
     embed()
     raise SystemExit()
-    #"""
+    """
     return part
 
 
