@@ -1197,7 +1197,17 @@ def build_collimation_tracker(line):
     # Transfer lattice on context and compile tracking code
     global_aper_limit = 1e3  # Make this large to ensure particles lost on aperture markers
 
+    # compile the track kernel once and set it as the default kernel. TODO: a bit clunky, find a more elegant approach
+
     line.build_tracker(_context=context)
+
+    tracker_opts=dict(track_kernel=line.tracker.track_kernel,
+                      _buffer=line.tracker._buffer,
+                      _context=line.tracker._context,
+                      io_buffer=line.tracker.io_buffer)
+    
+    line.discard_tracker() 
+    line.build_tracker(**tracker_opts)
     line.config.global_xy_limit=global_aper_limit
 
 
