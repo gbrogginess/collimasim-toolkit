@@ -813,17 +813,36 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     nsigma_coll = coll_dict['nsigma']
     halfgap = coll_dict['halfgap']
 
+    twiss = line.twiss(**XTRACK_TWISS_KWARGS)
+    sigmas = twiss.get_betatron_sigmas(nemitt_x=emitt_x, nemitt_y=emitt_y)
+
+    gemitts = dict(x = emitt_x/ref_particle.beta0[0]/ref_particle.gamma0[0],
+                   y = emitt_x/ref_particle.beta0[0]/ref_particle.gamma0[0])
+
     plane = None
     converging = None
     if np.isclose(angle, 0):
         plane = 'x'
-        converging = coll_dict['alfx'] > 0
+
     elif np.isclose(angle, np.pi/2):
         plane = 'y'
         converging = coll_dict['alfy'] > 0
     else:
         plane = 's'
         raise Exception('Beams generation at skew collimators not implemented yet')
+
+    # Take the positive (left) jaw, it is the same for the right
+    betatron_angle = (-nsigma_for_offmom * twiss[f'alf{plane}', coll_name] 
+                      * np.sqrt(gemitts[plane] / twiss[f'bet{plane}', coll_name]))
+ 
+    delta_cut = ((halfgap - nsigma_for_offmom * sigmas[f'sigma_{plane}', coll_name])
+                / twiss[f'd{plane}', coll_name])
+    
+    off_mom_angle = (np.sign(twiss[f'd{plane}', coll_name]) 
+                     * delta_cut * twiss[f'dp{plane}', coll_name])
+    
+    converging = (betatron_angle + off_mom_angle) < 0
+
 
     plane_print = {'x': 'HORIZONTAL', 'y': 'VERTICAL'}[plane]
     conv_print = 'CONVERGING' if converging else 'DIVERGING'
@@ -834,7 +853,6 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     # Compute the extent of the halo
     coll_index = line.element_names.index(coll_name)
     match_element_index = coll_index if converging else coll_index + 1
-    twiss = line.twiss(**XTRACK_TWISS_KWARGS)
 
     coll_s = line.get_s_position(at_elements=coll_name)
     coll_length = coll_dict['length']
@@ -843,26 +861,17 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     else:
         match_s = coll_s + coll_length
 
-    if plane == 'x':
-        gemitt = emitt_x/ref_particle.beta0[0]/ref_particle.gamma0[0]
-        beta = twiss.betx[match_element_index]
-        gamma = twiss.gamx[match_element_index]
-        disp = twiss.dx[match_element_index]
-        disp_prime = twiss.dpx[match_element_index]
-    elif plane == 'y':
-        gemitt = emitt_y/ref_particle.beta0[0]/ref_particle.gamma0[0]
-        beta = twiss.bety[match_element_index]
-        gamma = twiss.gamy[match_element_index]
-        disp = twiss.dy[match_element_index]
-        disp_prime = twiss.dpy[match_element_index]
+    gemitt = gemitts[plane]
+    beta = twiss[f'bet{plane}', match_element_index]
+    disp = twiss[f'd{plane}', match_element_index]
+    disp_prime = twiss[f'dp{plane}', match_element_index]
 
     sigma = np.sqrt(beta * gemitt)
     phys_cut = halfgap + imp_par
     phys_cut_sigma = phys_cut / sigma
 
-
-    # phys_cut_betatron = halfgap + imp_par
     phys_cut_betatron = nsigma_for_offmom * sigma
+
     if nsigma_for_offmom is not None:
         assert abs(disp) > 0, 'Must have non-zero dispersion for off-mometnum beam'
         momentum_cut = abs((phys_cut_sigma - nsigma_for_offmom)*sigma / disp)
@@ -900,6 +909,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     else:
         abs_plane, norm_plane = 'y', 'x'
 
+    embed()
     # Collimator plane: generate pencil distribution in absolute coordinates
     abs_coords = []
     nsides = len(side) # 1 or 2
@@ -908,47 +918,36 @@ def _generate_direct_halo(line, ref_particle, coll_name,
         factor = -1 if _ss == '-' else 1
         npart = int(_round_funcs[i](num_particles / nsides))
 
+        # Generate the required betatron absolute coordinates
         coords = list(xp.generate_2D_pencil_with_absolute_cut(
                 npart, 
                 line = line,
                 plane=abs_plane,
-                absolute_cut=factor*halo_cut_inner + coll_dict[abs_plane], 
+                absolute_cut=factor*halo_cut_inner,# + coll_dict[abs_plane], 
                 dr_sigmas=dr_sigmas,
                 side=_ss,
                 nemitt_x=emitt_x, nemitt_y=emitt_y,
                 at_element=coll_name, match_at_s=match_s,
                 **XTRACK_TWISS_KWARGS,))
 
+        # Add the dispersive offsets
+        # the delta sign is computed to push the particles
+        # towards the selected side
         delta_sign = factor * np.sign(disp)
         coords[0] += delta_sign * momentum_cut * disp
         coords[1] += delta_sign * momentum_cut * disp_prime
+        coords.append(delta_sign * momentum_cut)
         
-        abs_coords.append()
+        abs_coords.append(coords)
     
     coord_dict[f'{abs_plane}'] = np.concatenate([cc[0] for cc in abs_coords])
     coord_dict[f'p{abs_plane}'] = np.concatenate([cc[1] for cc in abs_coords])
-
-    coord_dict[f'{abs_plane}'] += momentum_cut * disp
-    coord_dict[f'p{abs_plane}'] += momentum_cut * disp_prime
+    coord_dict['delta'] = np.concatenate([cc[2] for cc in abs_coords])
 
     # Other plane: generate a gaussian
     norm_coords = xp.generate_2D_gaussian(num_particles)
     coord_dict[f'{norm_plane}_norm'] = norm_coords[0]
     coord_dict[f'p{norm_plane}_norm'] = norm_coords[1]
-
-    # Longitudinal distribution always in absolute coordinates
-    zeta = 0
-    delta = 0
-    # Off-momentum delta if an off-momentum beam is specified
-    if nsigma_for_offmom is not None:
-        if side == '+-':
-            # Set delta to push the particles towards the corresponding jaw
-            delta_signs = np.sign(disp) * (coord_dict[abs_plane] > 0) + -np.sign(disp) * (coord_dict[abs_plane] < 0)
-            delta = delta_signs * momentum_cut
-        else:
-            factor = -1 if side=='-' else 1
-            delta_sign = factor * np.sign(disp)
-            delta = delta_sign * momentum_cut
 
     # Longitudinal distribution if specified
     assert sigma_z >= 0
@@ -964,8 +963,8 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     delta_co = twiss.delta[match_element_index] # The closed orbit delta
     zeta_co = twiss.zeta[match_element_index]
 
-    coord_dict['zeta'] = zeta + zeta_co + zeta_match
-    coord_dict['delta'] = delta + delta_co + delta_match
+    coord_dict['zeta'] = coord_dict['zeta'] + zeta_co + zeta_match
+    coord_dict['delta'] = coord_dict['delta'] + delta_co + delta_match
 
     part = line.build_particles(
             _capacity=capacity,
