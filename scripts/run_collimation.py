@@ -1183,6 +1183,11 @@ def prepare_particles(config_dict, line, ref_particle):
     else:
         raise ValueError('Unsupported distribution source: {}. Supported ones are: {}'
                          .format(dist['soruce'], ','.join(_supported_dist)))
+    
+    part_init_save_file=dist.get('initial_store_file', None)
+    if part_init_save_file is not None:
+        _save_particles_hdf(particles=particles, lossmap_data=None,
+                            filename=part_init_save_file)
     return particles
 
 
