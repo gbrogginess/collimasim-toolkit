@@ -22,6 +22,7 @@ import yaml
 import pandas as pd
 import numexpr as ne
 import pdb
+from tqdm import tqdm
 from IPython import embed
 from schema import Schema, And, Or, Use, Optional, SchemaError
 
@@ -1432,11 +1433,14 @@ def load_output(directory, output_file, match_pattern='*part.hdf*',
     part_hdf_files = []
     part_dataframes = []
     lossmap_dicts = []
-
+    
+    tqdm_ncols=100
+    tqdm_miniters=10
     print(f'Parsing directories...')
     dirs_visited = 0
     files_loaded = 0
-    for i, d in enumerate(job_dirs_sorted):
+    for i, d in tqdm(enumerate(job_dirs_sorted), total=len(job_dirs_sorted), 
+                     ncols=tqdm_ncols, miniters=tqdm_miniters):
         if imax is not None and i > imax:
             break
 
@@ -1454,25 +1458,29 @@ def load_output(directory, output_file, match_pattern='*part.hdf*',
     part_merged = None
     if load_particles:
         print(f'Loading particles...')
-        p = Pool()
-        part_dataframes = p.map(_read_particles_hdf, part_hdf_files)
-        part_objects = [xp.Particles.from_pandas(
-            pdf) for pdf in part_dataframes]
+        with Pool() as p:
+            part_dataframes = list(tqdm(p.imap(_read_particles_hdf, part_hdf_files), total=len(part_hdf_files), 
+                                        ncols=tqdm_ncols, miniters=tqdm_miniters))
+        part_objects = [xp.Particles.from_pandas(pdf) for pdf in tqdm(part_dataframes, total=len(part_dataframes),
+                                                                      ncols=tqdm_ncols, miniters=tqdm_miniters)]
+
         print('Particles load finished, merging...')
-        part_merged = xp.Particles.merge(part_objects)
+        part_merged = xp.Particles.merge(list(tqdm(part_objects, total=len(part_objects),
+                                              ncols=tqdm_ncols, miniters=tqdm_miniters)))
 
     # Load the loss maps
     lmd_merged = None
     if load_lossmap:
         print(f'Loading loss map data...')
-        p = Pool()
-        lossmap_dicts = p.map(_load_lossmap_hdf, part_hdf_files)
+        with Pool() as p:
+            lossmap_dicts = list(tqdm(p.imap(_load_lossmap_hdf, part_hdf_files), total=len(part_hdf_files), 
+                                      ncols=tqdm_ncols, miniters=tqdm_miniters))
 
         print('Loss map load finished, merging..')
 
         num_tol = 1e-9
         lmd_merged = lossmap_dicts[0]
-        for lmd in lossmap_dicts[1:]:
+        for lmd in tqdm(lossmap_dicts[1:], ncols=tqdm_ncols, miniters=tqdm_miniters):
             # Scalar parameters
             # Ensure consistency
             identical_params = ('s_min', 's_max', 'binwidth', 'nbins')
