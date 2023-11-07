@@ -832,14 +832,15 @@ def _generate_direct_halo(line, ref_particle, coll_name,
         raise Exception('Beams generation at skew collimators not implemented yet')
 
     # Take the positive (left) jaw, it is the same for the right
-    betatron_angle = (-nsigma_for_offmom * twiss[f'alf{plane}', coll_name] 
+    _nsom = nsigma_for_offmom if nsigma_for_offmom is not None else 0 
+
+    betatron_angle = (-_nsom * twiss[f'alf{plane}', coll_name] 
                       * np.sqrt(gemitts[plane] / twiss[f'bet{plane}', coll_name]))
  
-    delta_cut = ((halfgap - nsigma_for_offmom * sigmas[f'sigma_{plane}', coll_name])
+    delta_cut = ((halfgap - _nsom * sigmas[f'sigma_{plane}', coll_name])
                 / twiss[f'd{plane}', coll_name])
     
-    off_mom_angle = (np.sign(twiss[f'd{plane}', coll_name]) 
-                     * delta_cut * twiss[f'dp{plane}', coll_name])
+    off_mom_angle = delta_cut * twiss[f'dp{plane}', coll_name]
     
     converging = (betatron_angle + off_mom_angle) < 0
 
