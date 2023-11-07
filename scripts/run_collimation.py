@@ -797,7 +797,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
                           emitt_x, emitt_y, radiation_mode,
                           side, imp_par, 
                           spread, spread_symmetric, spread_isnormed, 
-                          sigma_z, nsigma_for_offmom, 
+                          sigma_z, betatron_sigmas, 
                           num_particles, capacity):
     
     _configure_tracker_radiation(line, radiation_mode, for_optics=True)
@@ -832,12 +832,18 @@ def _generate_direct_halo(line, ref_particle, coll_name,
         raise Exception('Beams generation at skew collimators not implemented yet')
 
     # Take the positive (left) jaw, it is the same for the right
-    _nsom = nsigma_for_offmom if nsigma_for_offmom is not None else 0 
+    # The angle doesn't change over the length of the collimator
+    if betatron_sigmas is not None:
+        # This means off-momentum beams are requested
+        betatron_nsig = betatron_sigmas
+    else:
+        # for now take betatron_nsig at the start, later is it re-computed at the match point (start or end)
+        betatron_nsig = halfgap / sigmas[f'sigma_{plane}', coll_name]
 
-    betatron_angle = (-_nsom * twiss[f'alf{plane}', coll_name] 
+    betatron_angle = (-betatron_nsig * twiss[f'alf{plane}', coll_name] 
                       * np.sqrt(gemitts[plane] / twiss[f'bet{plane}', coll_name]))
  
-    delta_cut = ((halfgap - _nsom * sigmas[f'sigma_{plane}', coll_name])
+    delta_cut = ((halfgap - betatron_nsig * sigmas[f'sigma_{plane}', coll_name])
                 / twiss[f'd{plane}', coll_name])
     
     off_mom_angle = delta_cut * twiss[f'dp{plane}', coll_name]
@@ -871,13 +877,19 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     phys_cut = halfgap + imp_par
     phys_cut_sigma = phys_cut / sigma
 
-    phys_cut_betatron = nsigma_for_offmom * sigma
-
-    if nsigma_for_offmom is not None:
+    # If off-momentum beams are requested, betatron_sigmas is set
+    # a custom value between 0 and the collimator cut
+    # If no off-momentum beams are requested, the betatron nsigma
+    # is the sigma setting of the collimator, computed at the match location
+    if betatron_sigmas is not None:
         assert abs(disp) > 0, 'Must have non-zero dispersion for off-mometnum beam'
-        momentum_cut = abs((phys_cut_sigma - nsigma_for_offmom)*sigma / disp)
+        betatron_nsig = betatron_sigmas
     else:
-        momentum_cut = abs(phys_cut / disp) if abs(disp) > 0 else np.nan
+        betatron_nsig = phys_cut_sigma
+
+    phys_cut_betatron = betatron_nsig * sigma
+
+    momentum_cut = abs((phys_cut_sigma - betatron_nsig)*sigma / disp)
     
     if spread_isnormed:
         spread_phys=spread * sigma
