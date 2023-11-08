@@ -150,6 +150,7 @@ RUN_SCHEMA = Schema({'energy_cut': Use(to_float),
                      'max_particles': Use(to_int),
                      Optional('radiation', default='off'): And(str, lambda s: s in ('off', 'mean', 'quantum')),
                      Optional('beamstrahlung', default='off'): And(str, lambda s: s in ('off', 'mean', 'quantum')),
+                     Optional('bhabha', default='off'): And(str, lambda s: s in ('off', 'mean', 'quantum')),
                      Optional('turn_rf_off', default=False): Use(bool),
                      Optional('compensate_sr_energy_loss', default=False): Use(bool),
                      Optional('sr_compensation_delta', default=None): Or(Use(to_float), None),
@@ -437,6 +438,7 @@ def _make_bb_lens(nb, phi, sigma_z, alpha, n_slices, other_beam_q0,
             # has to be set
             slices_other_beam_Sigma_12    = n_slices*[0],
             slices_other_beam_Sigma_34    = n_slices*[0],
+            compt_x_min                   = 1e-4,
         )
     el_beambeam.iscollective = True # Disable in twiss
 
@@ -445,6 +447,8 @@ def _make_bb_lens(nb, phi, sigma_z, alpha, n_slices, other_beam_q0,
 
 def _insert_beambeam_elements(line, config_dict, twiss_table, emit):
     beamstrahlung_mode = config_dict['run'].get('beamstrahlung', 'off')
+    beamstrahlung_mode = config_dict['run'].get('bhabha', 'off')
+    # This is needed to set parameters of the beam-beam lenses
     beamstrahlung_on = beamstrahlung_mode != 'off'
 
     beambeam_block = config_dict.get('beambeam', None)
@@ -473,10 +477,10 @@ def _insert_beambeam_elements(line, config_dict, twiss_table, emit):
                                     n_slices=int(bb_def['n_slices']),
                                     other_beam_q0=int(bb_def['other_beam_q0']),
                                     alpha=0, # Put it to zero, it is okay for this use case
-                                    sigma_x=sigmas['Sigma11'][element_twiss_index], 
-                                    sigma_px=sigmas['Sigma22'][element_twiss_index], 
-                                    sigma_y=sigmas['Sigma33'][element_twiss_index], 
-                                    sigma_py=sigmas['Sigma44'][element_twiss_index], 
+                                    sigma_x=np.sqrt(sigmas['Sigma11'][element_twiss_index]), 
+                                    sigma_px=np.sqrt(sigmas['Sigma22'][element_twiss_index]), 
+                                    sigma_y=np.sqrt(sigmas['Sigma33'][element_twiss_index]), 
+                                    sigma_py=np.sqrt(sigmas['Sigma44'][element_twiss_index]), 
                                     beamstrahlung_on=beamstrahlung_on)
             
             line.insert_element(index=element_line_index, 
@@ -500,19 +504,22 @@ def cycle_line(line, name):
     return line, s0
 
 
-def _configure_tracker_radiation(line, radiation_model, beamstrahlung_model=None, for_optics=False):
+def _configure_tracker_radiation(line, radiation_model, beamstrahlung_model=None, bhabha_model=None, for_optics=False):
     mode_print = 'optics' if for_optics else 'tracking'
 
     print_message = f"Tracker synchrotron radiation mode for '{mode_print}' is '{radiation_model}'"
 
     _beamstrahlung_model = None if beamstrahlung_model == 'off' else beamstrahlung_model
+    _bhabha_model = None if bhabha_model == 'off' else bhabha_model
 
     if radiation_model == 'mean':
         if for_optics:
-            # Ignore beamstrahlung for optics
+            # Ignore beamstrahlung and bhabha for optics
             line.configure_radiation(model=radiation_model)
         else:
-            line.configure_radiation(model=radiation_model, model_beamstrahlung=_beamstrahlung_model)
+            line.configure_radiation(model=radiation_model, 
+                                     model_beamstrahlung=_beamstrahlung_model,
+                                     model_bhabha=_bhabha_model)
 
          # The matrix stability tolerance needs to be relaxed for radiation and tapering
         line.matrix_stability_tol = 0.5
@@ -523,7 +530,9 @@ def _configure_tracker_radiation(line, radiation_model, beamstrahlung_model=None
             " reverting to radiation='mean' for optics.")
             line.configure_radiation(model='mean')
         else:
-            line.configure_radiation(model='quantum', model_beamstrahlung=_beamstrahlung_model)
+            line.configure_radiation(model='quantum',
+                                     model_beamstrahlung=_beamstrahlung_model,
+                                     model_bhabha=_bhabha_model)
         line.matrix_stability_tol = 0.5
 
     elif radiation_model == 'off':
@@ -1336,6 +1345,7 @@ def _apply_dynamic_element_change(line, tbt_change_list, turn):
 def run(config_dict, line, particles, ref_part, start_element, s0):
     radiation_mode = config_dict['run']['radiation']
     beamstrahlung_mode = config_dict['run']['beamstrahlung']
+    bhabha_mode = config_dict['run']['bhabha']
 
     nturns = config_dict['run']['turns']
     
@@ -1362,8 +1372,8 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
             tbt_change_list = _prepare_dynamic_element_change(line, twiss_table, gemit_x, gemit_y, dyn_change_elem, nturns)
 
     
-    _configure_tracker_radiation(line, radiation_mode, beamstrahlung_mode, for_optics=False)
-    if radiation_mode == 'quantum':
+    _configure_tracker_radiation(line, radiation_mode, beamstrahlung_mode, bhabha_mode, for_optics=False)
+    if 'quantum' in (radiation_mode, beamstrahlung_mode, bhabha_mode):
         # Explicitly initialise the random number generator for the quantum mode
         seed = config_dict['run']['seed']
         seed_offset = 1e7 # Make sure the seeds are unique and don't overlap between simulations
@@ -1586,7 +1596,14 @@ def prepare_lossmap(particles, line, s0, binwidth, weights):
     # Select particles same as the beam particle
     mask_part_type = abs(particles.chi - 1) < 1e-7
     mask_lost = particles.state <= 0
-    particles = particles.filter(mask_part_type & mask_lost)
+
+    # If no losses return empty loss maps, but preserve structures
+    if not np.any(mask_lost):
+        warn('No losses found, loss map will be empty')
+        particles = xp.Particles(x=[], **{kk[1]:getattr(particles,kk[1]) 
+                                          for kk in particles.scalar_vars})
+    else:
+        particles = particles.filter(mask_part_type & mask_lost)
 
     # Get a mask for the collimator losses
     mask_losses_coll = np.in1d(particles.at_element, coll_idx)
