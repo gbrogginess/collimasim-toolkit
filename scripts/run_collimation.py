@@ -106,6 +106,7 @@ MATCHED_SCHM = Schema({'type': And(str, lambda s: s in ('matched_beam',)),
 
 DIST_SCHEMA = Schema({'source': And(str, lambda s: s in ('gpdist', 'internal', 'xsuite')),
              Optional('start_element', default=None): Or(str.lower, None),
+             Optional('initial_store_file', default=None): Or(str.lower, None),
         'parameters': Or(GPDIST_DIST_SCHEMA,
                          XSUITE_DIST_SCHEMA,
                          MATCHED_SCHM,
