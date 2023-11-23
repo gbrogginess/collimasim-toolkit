@@ -42,20 +42,7 @@ if subprocess.run([sys.executable, '-c', 'import collimasim']).returncode == 0:
 else:
     warn("collimasim cannot be imported, some features will not work")
 
-ParticleInfo = namedtuple('ParticleInfo', ['name', 'pdgid', 'mass', 'charge'])
-MADX_ELECTRON_MASS_EV = 510998.95
-PARTICLE_INFO_DICT = {
-    # 'electron': ParticleInfo('electron', 11, xp.constants.ELECTRON_MASS_EV, -1),
-    # 'positron': ParticleInfo('positron', -11, xp.constants.ELECTRON_MASS_EV, 1),
-    'electron': ParticleInfo('electron', 11, MADX_ELECTRON_MASS_EV, -1),
-    'positron': ParticleInfo('positron', -11, MADX_ELECTRON_MASS_EV, 1),
-    'proton': ParticleInfo('proton', 2212, xp.PROTON_MASS_EV, 1),
-}
-def _check_supported_particle(particle_name):
-    if particle_name in PARTICLE_INFO_DICT:
-        return True
-    else:
-        return False
+ParticleInfo = namedtuple('ParticleInfo', ['name', 'pdgid', 'mass', 'A', 'Z','charge'])
 
 # Note that YAML has inconsitencies when parsing numbers in scientific notation
 # To avoid numbers parsed as strings in some configurations, always cast to float / int
@@ -72,7 +59,7 @@ INPUT_SCHEMA = Schema({'machine': str,
                        Optional('material_rename_map', default={}): Schema({str: str}),
                        })
 
-BEAM_SCHEMA = Schema({'particle': _check_supported_particle,
+BEAM_SCHEMA = Schema({'particle': str,
                       'momentum': Use(to_float),
                       'emittance': Or(Use(to_float), {'x': Use(to_float), 'y': Use(to_float)}),
                       })
@@ -599,6 +586,12 @@ def _compensate_energy_loss(line, delta0=0.):
     line.compensate_radiation_energy_loss(delta0=delta0)
 
 
+def get_particle_info(particle_name):
+    pdg_id = xp.pdg.get_pdg_id_from_name(particle_name)
+    charge, A, Z, _ = xp.pdg.get_properties_from_pdg_id(pdg_id)
+    mass = cs.xtrack_collimator.get_mass_from_pdg_id(pdg_id)
+    return ParticleInfo(particle_name, pdg_id, mass, A, Z, charge)
+
 def load_and_process_line(config_dict):
     beam = config_dict['beam']
     inp = config_dict['input']
@@ -611,19 +604,14 @@ def load_and_process_line(config_dict):
         emit = emittance
 
     particle_name = config_dict['beam']['particle']
-    particle_info = None
-    if particle_name in PARTICLE_INFO_DICT:
-        particle_info = PARTICLE_INFO_DICT[particle_name]
-    else:
-        raise Exception('Particle {} not supported.'
-        'Supported types are: {}'.format(particle_name, ', '.join(PARTICLE_INFO_DICT.keys())))
+    particle_info = get_particle_info(particle_name)
 
     p0 = beam['momentum']
     mass = particle_info.mass
     q0 = particle_info.charge
     ke0 = _kinetic_energy(mass, p0)
     e0 = _energy(mass, p0)
-    ref_part = xp.Particles(p0c=p0, mass0=mass, q0=q0)
+    ref_part = xp.Particles(p0c=p0, mass0=mass, q0=q0, pdg_id=particle_info.pdgid)
 
     comp_eloss = run.get('compensate_sr_energy_loss', False)
 
@@ -668,7 +656,7 @@ def load_and_process_line(config_dict):
     g4man = cs.Geant4CollimationManager(collimator_file=inp['collimator_file'],
                                         bdsim_config_file=inp['bdsim_config'],
                                         tfs_file=twiss,
-                                        reference_pdg_id=particle_info.pdgid,
+                                        reference_pdg_id=line.particle_ref.pdg_id,
                                         reference_kinetic_energy=ke0,
                                         emittance_norm=emit,
                                         relative_energy_cut=run['energy_cut'],
