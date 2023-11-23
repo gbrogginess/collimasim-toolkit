@@ -1582,8 +1582,8 @@ def prepare_lossmap(particles, line, s0, binwidth, weights):
     mask_prim = particles.parent_particle_id == particles.particle_id
     n_prim = len(particles.filter(mask_prim).x)
 
-    # Select particles same as the beam particle
-    mask_part_type = abs(particles.chi - 1) < 1e-7
+    # Filter particles of different types than the norminal
+    # mask_part_type = abs(particles.chi - 1) < 1e-7
     mask_lost = particles.state <= 0
 
     # If no losses return empty loss maps, but preserve structures
@@ -1592,7 +1592,7 @@ def prepare_lossmap(particles, line, s0, binwidth, weights):
         particles = xp.Particles(x=[], **{kk[1]:getattr(particles,kk[1]) 
                                           for kk in particles.scalar_vars})
     else:
-        particles = particles.filter(mask_part_type & mask_lost)
+        particles = particles.filter(mask_lost) #(mask_part_type & mask_lost)
 
     # Get a mask for the collimator losses
     mask_losses_coll = np.in1d(particles.at_element, coll_idx)
