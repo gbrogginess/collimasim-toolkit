@@ -1789,7 +1789,7 @@ def execute(config_dict):
     # modifies the Particles object in place
     run(config_dict, line, particles, ref_part, start_elem, s0)
 
-    plot_lossmap(output_file, extra_ranges=[(33000, 35500), (44500, 46500)], norm='total')
+    # plot_lossmap(output_file, extra_ranges=[(33000, 35500), (44500, 46500)], norm='total')
 
 
 @contextmanager
