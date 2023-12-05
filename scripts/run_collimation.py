@@ -531,7 +531,7 @@ def _configure_tracker_radiation(line, radiation_model, beamstrahlung_model=None
     print(print_message)
 
 
-def _save_particles_hdf(particles=None, lossmap_data=None, filename='part'):
+def _save_particles_hdf(particles=None, lossmap_data=None, filename='part', reduce_particles_size=False):
     if not filename.endswith('.hdf'):
         filename += '.hdf'
 
@@ -542,6 +542,11 @@ def _save_particles_hdf(particles=None, lossmap_data=None, filename='part'):
 
     if particles is not None:
         df = particles.to_pandas(compact=True)
+        if reduce_particles_size:
+            for dtype in ('float64', 'int64'):
+                thistype_columns = df.select_dtypes(include=[dtype]).columns
+                df[thistype_columns] = df[thistype_columns].astype(dtype.replace('64', '32'))
+
         df.to_hdf(fpath, key='particles', format='table', mode='a',
                   complevel=9, complib='blosc')
 
