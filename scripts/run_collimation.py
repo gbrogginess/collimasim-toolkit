@@ -1607,7 +1607,7 @@ def prepare_lossmap(particles, line, s0, binwidth, weights):
     if weights == 'energy':
         part_mass_ratio = particles.charge_ratio / particles.chi
         part_mom = (particles.delta + 1) * particles.p0c * part_mass_ratio
-        part_mass = (particles.charge_ratio / particles.chi) * particles.mass0
+        part_mass = part_mass_ratio * particles.mass0
         part_tot_energy = np.sqrt(part_mom**2 + part_mass**2)
         histo_weights = part_tot_energy
     elif weights == 'none':
