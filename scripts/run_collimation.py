@@ -1822,7 +1822,33 @@ def submit_jobs(config_dict, config_file):
         if sub_dict.get('run_local', False) and num_jobs > max_local_jobs:
             raise Exception(f'Cannot run more than {max_local_jobs} jobs locally,'
                             f' {num_jobs} requested.')
-            
+        
+        large_xsuite_distr = None
+        if config_dict['dist']['source'] == 'xsuite':
+            large_xsuite_distr = False
+            distr_abspath = Path(config_dict['dist']['parameters']['file']).resolve()
+            distr_dir = distr_abspath.parent
+
+            with open(distr_abspath, 'r') as file:
+                npart = sum(1 for line in file)
+
+            capacity = config_dict['run']['max_particles']
+
+            if npart > capacity:
+                large_xsuite_distr = True
+                xtrack_columns = ['x', 'px', 'y', 'py', 'delta', 'zeta']
+                df_distr = pd.read_csv(distr_abspath, names=xtrack_columns)
+
+                npart_per_job = config_dict['run']['nparticles']
+
+                # Split df_distr into smaller dataframes
+                smaller_dfs_distr =  [df_distr[i*npart_per_job:(i+1)*npart_per_job] for i in range(num_jobs)]
+                smaller_distr_dir = Path(distr_dir, 'xsuite_distr_for_jobs')
+                os.makedirs(smaller_distr_dir)
+                # Save each smaller df_distr as a separate csv file
+                for i, smaller_df_distr in enumerate(smaller_dfs_distr):
+                    smaller_df_distr.to_csv(smaller_distr_dir.joinpath(f'xsuite_distribution_job{i}.csv'), index=False)
+                    
         # Make a directory to copy the files for the submission
         input_cache = Path(workdir, 'input_cache')
         os.makedirs(workdir)
@@ -1843,8 +1869,19 @@ def submit_jobs(config_dict, config_file):
         resolved_config_dict = copy.deepcopy(reduced_config_dict)
         resolve_and_cache_paths(reduced_config_dict, resolved_config_dict, input_cache)
 
-        resolved_conf_file = f'for_jobs_{conf_fname}' # config file used to run each job
-        dump_dict_to_yaml(resolved_config_dict, Path(input_cache, resolved_conf_file))
+        if large_xsuite_distr:
+            os.makedirs(Path(input_cache, 'xsuite_distr_for_jobs'))
+            shutil.copytree(smaller_distr_dir, Path(input_cache, 'xsuite_distr_for_jobs'), dirs_exist_ok=True)
+            resolved_conf_file_list = []
+            for i in range(num_jobs):
+                temp_dict = resolved_config_dict.copy()
+                temp_dict['dist']['parameters']['file'] = str(smaller_distr_dir.relative_to(distr_dir).joinpath(f'xsuite_distribution_job{i}.csv'))
+                resolved_conf_file = f'for_job{i}_{conf_fname}' # config file used to run each job
+                resolved_conf_file_list.append(resolved_conf_file)
+                dump_dict_to_yaml(temp_dict, Path(input_cache, resolved_conf_file))
+        else:
+            resolved_conf_file = f'for_jobs_{conf_fname}' # config file used to run each job
+            dump_dict_to_yaml(resolved_config_dict, Path(input_cache, resolved_conf_file))
 
         # compress the input cache to reduce network traffic
         shutil.make_archive(input_cache, 'gztar', input_cache)
@@ -1855,7 +1892,7 @@ def submit_jobs(config_dict, config_file):
         # Set up the jobs
         seeds = np.arange(num_jobs) + 1 # Start the seeds at 1
         replace_dict_base = {'seed': seeds.tolist(),
-                             'config_file': resolved_conf_file,
+                             'config_file': resolved_conf_file_list if large_xsuite_distr else resolved_conf_file,
                              'input_cache_archive': str(input_cache) + '.tar.gz'}
 
         # Pass through additional replace dict option and other job_submitter flags
