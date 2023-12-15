@@ -1890,8 +1890,8 @@ def submit_jobs(config_dict, config_file):
         # input_cache.rmdir()
 
         # Set up the jobs
-        seeds = np.arange(num_jobs) + 1 # Start the seeds at 1
-        replace_dict_base = {'seed': seeds.tolist(),
+        seeds = 1993 if large_xsuite_distr else np.arange(num_jobs) + 1 # Start the seeds at 1
+        replace_dict_base = {'seed': seeds if large_xsuite_distr else seeds.tolist(),
                              'config_file': resolved_conf_file_list if large_xsuite_distr else resolved_conf_file,
                              'input_cache_archive': str(input_cache) + '.tar.gz'}
 
