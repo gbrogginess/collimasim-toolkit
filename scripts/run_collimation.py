@@ -1841,7 +1841,7 @@ def submit_jobs(config_dict, config_file):
                 npart_per_job = config_dict['run']['nparticles']
 
                 # Split df_distr into smaller dataframes
-                smaller_dfs_distr =  [df_distr[i*npart_per_job:(i+1)*npart_per_job] for i in range(num_jobs)]
+                smaller_dfs_distr = [df_distr.loc[int(i*npart_per_job):int((i+1)*npart_per_job)-1] for i in range(num_jobs)]
                 smaller_distr_dir = Path(distr_dir, 'xsuite_distr_for_jobs')
                 os.makedirs(smaller_distr_dir)
                 # Save each smaller df_distr as a separate csv file
