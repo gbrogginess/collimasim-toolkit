@@ -1836,8 +1836,7 @@ def submit_jobs(config_dict, config_file):
 
             if npart > capacity:
                 large_xsuite_distr = True
-                xtrack_columns = ['x', 'px', 'y', 'py', 'delta', 'zeta']
-                df_distr = pd.read_csv(distr_abspath, names=xtrack_columns)
+                df_distr = pd.read_csv(distr_abspath)
 
                 npart_per_job = config_dict['run']['nparticles']
 
