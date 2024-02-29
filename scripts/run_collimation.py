@@ -43,20 +43,7 @@ if subprocess.run([sys.executable, '-c', 'import collimasim']).returncode == 0:
 else:
     warn("collimasim cannot be imported, some features will not work")
 
-ParticleInfo = namedtuple('ParticleInfo', ['name', 'pdgid', 'mass', 'charge'])
-MADX_ELECTRON_MASS_EV = 510998.95
-PARTICLE_INFO_DICT = {
-    # 'electron': ParticleInfo('electron', 11, xp.constants.ELECTRON_MASS_EV, -1),
-    # 'positron': ParticleInfo('positron', -11, xp.constants.ELECTRON_MASS_EV, 1),
-    'electron': ParticleInfo('electron', 11, MADX_ELECTRON_MASS_EV, -1),
-    'positron': ParticleInfo('positron', -11, MADX_ELECTRON_MASS_EV, 1),
-    'proton': ParticleInfo('proton', 2212, xp.PROTON_MASS_EV, 1),
-}
-def _check_supported_particle(particle_name):
-    if particle_name in PARTICLE_INFO_DICT:
-        return True
-    else:
-        return False
+ParticleInfo = namedtuple('ParticleInfo', ['name', 'pdgid', 'mass', 'A', 'Z','charge'])
 
 # Note that YAML has inconsitencies when parsing numbers in scientific notation
 # To avoid numbers parsed as strings in some configurations, always cast to float / int
@@ -73,7 +60,7 @@ INPUT_SCHEMA = Schema({'machine': str,
                        Optional('material_rename_map', default={}): Schema({str: str}),
                        })
 
-BEAM_SCHEMA = Schema({'particle': _check_supported_particle,
+BEAM_SCHEMA = Schema({'particle': str,
                       'momentum': Use(to_float),
                       'emittance': Or(Use(to_float), {'x': Use(to_float), 'y': Use(to_float)}),
                       })
@@ -107,6 +94,7 @@ MATCHED_SCHM = Schema({'type': And(str, lambda s: s in ('matched_beam',)),
 
 DIST_SCHEMA = Schema({'source': And(str, lambda s: s in ('gpdist', 'internal', 'xsuite')),
              Optional('start_element', default=None): Or(str.lower, None),
+             Optional('initial_store_file', default=None): Or(str.lower, None),
         'parameters': Or(GPDIST_DIST_SCHEMA,
                          XSUITE_DIST_SCHEMA,
                          MATCHED_SCHM,
@@ -151,6 +139,7 @@ RUN_SCHEMA = Schema({'energy_cut': Use(to_float),
                      'max_particles': Use(to_int),
                      Optional('radiation', default='off'): And(str, lambda s: s in ('off', 'mean', 'quantum')),
                      Optional('beamstrahlung', default='off'): And(str, lambda s: s in ('off', 'mean', 'quantum')),
+                     Optional('bhabha', default='off'): And(str, lambda s: s in ('off', 'mean', 'quantum')),
                      Optional('turn_rf_off', default=False): Use(bool),
                      Optional('compensate_sr_energy_loss', default=False): Use(bool),
                      Optional('sr_compensation_delta', default=None): Or(Use(to_float), None),
@@ -162,6 +151,7 @@ RUN_SCHEMA = Schema({'energy_cut': Use(to_float),
 JOB_SUBMIT_SCHEMA = Schema({'mask': Or(os.path.exists, lambda s: s=='default'),
                             'working_directory': str,
                             'num_jobs': Use(to_int),
+                            Optional('output_destination'): str,
                             Optional('replace_dict'): str,
                             Optional('append_jobs'): bool,
                             Optional('dryrun'): bool,
@@ -438,6 +428,7 @@ def _make_bb_lens(nb, phi, sigma_z, alpha, n_slices, other_beam_q0,
             # has to be set
             slices_other_beam_Sigma_12    = n_slices*[0],
             slices_other_beam_Sigma_34    = n_slices*[0],
+            compt_x_min                   = 1e-4,
         )
     el_beambeam.iscollective = True # Disable in twiss
 
@@ -446,6 +437,8 @@ def _make_bb_lens(nb, phi, sigma_z, alpha, n_slices, other_beam_q0,
 
 def _insert_beambeam_elements(line, config_dict, twiss_table, emit):
     beamstrahlung_mode = config_dict['run'].get('beamstrahlung', 'off')
+    beamstrahlung_mode = config_dict['run'].get('bhabha', 'off')
+    # This is needed to set parameters of the beam-beam lenses
     beamstrahlung_on = beamstrahlung_mode != 'off'
 
     beambeam_block = config_dict.get('beambeam', None)
@@ -474,10 +467,10 @@ def _insert_beambeam_elements(line, config_dict, twiss_table, emit):
                                     n_slices=int(bb_def['n_slices']),
                                     other_beam_q0=int(bb_def['other_beam_q0']),
                                     alpha=0, # Put it to zero, it is okay for this use case
-                                    sigma_x=sigmas['Sigma11'][element_twiss_index], 
-                                    sigma_px=sigmas['Sigma22'][element_twiss_index], 
-                                    sigma_y=sigmas['Sigma33'][element_twiss_index], 
-                                    sigma_py=sigmas['Sigma44'][element_twiss_index], 
+                                    sigma_x=np.sqrt(sigmas['Sigma11'][element_twiss_index]), 
+                                    sigma_px=np.sqrt(sigmas['Sigma22'][element_twiss_index]), 
+                                    sigma_y=np.sqrt(sigmas['Sigma33'][element_twiss_index]), 
+                                    sigma_py=np.sqrt(sigmas['Sigma44'][element_twiss_index]), 
                                     beamstrahlung_on=beamstrahlung_on)
             
             line.insert_element(index=element_line_index, 
@@ -501,19 +494,22 @@ def cycle_line(line, name):
     return line, s0
 
 
-def _configure_tracker_radiation(line, radiation_model, beamstrahlung_model=None, for_optics=False):
+def _configure_tracker_radiation(line, radiation_model, beamstrahlung_model=None, bhabha_model=None, for_optics=False):
     mode_print = 'optics' if for_optics else 'tracking'
 
     print_message = f"Tracker synchrotron radiation mode for '{mode_print}' is '{radiation_model}'"
 
     _beamstrahlung_model = None if beamstrahlung_model == 'off' else beamstrahlung_model
+    _bhabha_model = None if bhabha_model == 'off' else bhabha_model
 
     if radiation_model == 'mean':
         if for_optics:
-            # Ignore beamstrahlung for optics
+            # Ignore beamstrahlung and bhabha for optics
             line.configure_radiation(model=radiation_model)
         else:
-            line.configure_radiation(model=radiation_model, model_beamstrahlung=_beamstrahlung_model)
+            line.configure_radiation(model=radiation_model, 
+                                     model_beamstrahlung=_beamstrahlung_model,
+                                     model_bhabha=_bhabha_model)
 
          # The matrix stability tolerance needs to be relaxed for radiation and tapering
         line.matrix_stability_tol = 0.5
@@ -524,7 +520,9 @@ def _configure_tracker_radiation(line, radiation_model, beamstrahlung_model=None
             " reverting to radiation='mean' for optics.")
             line.configure_radiation(model='mean')
         else:
-            line.configure_radiation(model='quantum', model_beamstrahlung=_beamstrahlung_model)
+            line.configure_radiation(model='quantum',
+                                     model_beamstrahlung=_beamstrahlung_model,
+                                     model_bhabha=_bhabha_model)
         line.matrix_stability_tol = 0.5
 
     elif radiation_model == 'off':
@@ -534,7 +532,7 @@ def _configure_tracker_radiation(line, radiation_model, beamstrahlung_model=None
     print(print_message)
 
 
-def _save_particles_hdf(particles=None, lossmap_data=None, filename='part'):
+def _save_particles_hdf(particles=None, lossmap_data=None, filename='part', reduce_particles_size=False):
     if not filename.endswith('.hdf'):
         filename += '.hdf'
 
@@ -545,6 +543,11 @@ def _save_particles_hdf(particles=None, lossmap_data=None, filename='part'):
 
     if particles is not None:
         df = particles.to_pandas(compact=True)
+        if reduce_particles_size:
+            for dtype in ('float64', 'int64'):
+                thistype_columns = df.select_dtypes(include=[dtype]).columns
+                df[thistype_columns] = df[thistype_columns].astype(dtype.replace('64', '32'))
+
         df.to_hdf(fpath, key='particles', format='table', mode='a',
                   complevel=9, complib='blosc')
 
@@ -590,6 +593,12 @@ def _compensate_energy_loss(line, delta0=0.):
     line.compensate_radiation_energy_loss(delta0=delta0)
 
 
+def get_particle_info(particle_name):
+    pdg_id = xp.pdg.get_pdg_id_from_name(particle_name)
+    charge, A, Z, _ = xp.pdg.get_properties_from_pdg_id(pdg_id)
+    mass = cs.xtrack_collimator.get_mass_from_pdg_id(pdg_id)
+    return ParticleInfo(particle_name, pdg_id, mass, A, Z, charge)
+
 def load_and_process_line(config_dict):
     beam = config_dict['beam']
     inp = config_dict['input']
@@ -602,19 +611,14 @@ def load_and_process_line(config_dict):
         emit = emittance
 
     particle_name = config_dict['beam']['particle']
-    particle_info = None
-    if particle_name in PARTICLE_INFO_DICT:
-        particle_info = PARTICLE_INFO_DICT[particle_name]
-    else:
-        raise Exception('Particle {} not supported.'
-        'Supported types are: {}'.format(particle_name, ', '.join(PARTICLE_INFO_DICT.keys())))
+    particle_info = get_particle_info(particle_name)
 
     p0 = beam['momentum']
     mass = particle_info.mass
     q0 = particle_info.charge
     ke0 = _kinetic_energy(mass, p0)
     e0 = _energy(mass, p0)
-    ref_part = xp.Particles(p0c=p0, mass0=mass, q0=q0)
+    ref_part = xp.Particles(p0c=p0, mass0=mass, q0=q0, pdg_id=particle_info.pdgid)
 
     comp_eloss = run.get('compensate_sr_energy_loss', False)
 
@@ -659,7 +663,7 @@ def load_and_process_line(config_dict):
     g4man = cs.Geant4CollimationManager(collimator_file=inp['collimator_file'],
                                         bdsim_config_file=inp['bdsim_config'],
                                         tfs_file=twiss,
-                                        reference_pdg_id=particle_info.pdgid,
+                                        reference_pdg_id=line.particle_ref.pdg_id,
                                         reference_kinetic_energy=ke0,
                                         emittance_norm=emit,
                                         relative_energy_cut=run['energy_cut'],
@@ -798,7 +802,7 @@ def _generate_direct_halo(line, ref_particle, coll_name,
                           emitt_x, emitt_y, radiation_mode,
                           side, imp_par, 
                           spread, spread_symmetric, spread_isnormed, 
-                          sigma_z, nsigma_for_offmom, 
+                          sigma_z, betatron_sigmas, 
                           num_particles, capacity):
     
     _configure_tracker_radiation(line, radiation_mode, for_optics=True)
@@ -814,17 +818,43 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     nsigma_coll = coll_dict['nsigma']
     halfgap = coll_dict['halfgap']
 
+    twiss = line.twiss(**XTRACK_TWISS_KWARGS)
+    sigmas = twiss.get_betatron_sigmas(nemitt_x=emitt_x, nemitt_y=emitt_y)
+
+    gemitts = dict(x = emitt_x/ref_particle.beta0[0]/ref_particle.gamma0[0],
+                   y = emitt_x/ref_particle.beta0[0]/ref_particle.gamma0[0])
+
     plane = None
     converging = None
     if np.isclose(angle, 0):
         plane = 'x'
-        converging = coll_dict['alfx'] > 0
+
     elif np.isclose(angle, np.pi/2):
         plane = 'y'
         converging = coll_dict['alfy'] > 0
     else:
         plane = 's'
         raise Exception('Beams generation at skew collimators not implemented yet')
+
+    # Take the positive (left) jaw, it is the same for the right
+    # The angle doesn't change over the length of the collimator
+    if betatron_sigmas is not None:
+        # This means off-momentum beams are requested
+        betatron_nsig = betatron_sigmas
+    else:
+        # for now take betatron_nsig at the start, later is it re-computed at the match point (start or end)
+        betatron_nsig = halfgap / sigmas[f'sigma_{plane}', coll_name]
+
+    betatron_angle = (-betatron_nsig * twiss[f'alf{plane}', coll_name] 
+                      * np.sqrt(gemitts[plane] / twiss[f'bet{plane}', coll_name]))
+ 
+    delta_cut = ((halfgap - betatron_nsig * sigmas[f'sigma_{plane}', coll_name])
+                / twiss[f'd{plane}', coll_name])
+    
+    off_mom_angle = delta_cut * twiss[f'dp{plane}', coll_name]
+    
+    converging = (betatron_angle + off_mom_angle) < 0
+
 
     plane_print = {'x': 'HORIZONTAL', 'y': 'VERTICAL'}[plane]
     conv_print = 'CONVERGING' if converging else 'DIVERGING'
@@ -835,7 +865,6 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     # Compute the extent of the halo
     coll_index = line.element_names.index(coll_name)
     match_element_index = coll_index if converging else coll_index + 1
-    twiss = line.twiss(**XTRACK_TWISS_KWARGS)
 
     coll_s = line.get_s_position(at_elements=coll_name)
     coll_length = coll_dict['length']
@@ -844,30 +873,28 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     else:
         match_s = coll_s + coll_length
 
-    if plane == 'x':
-        gemitt = emitt_x/ref_particle.beta0[0]/ref_particle.gamma0[0]
-        beta = twiss.betx[match_element_index]
-        gamma = twiss.gamx[match_element_index]
-        disp = twiss.dx[match_element_index]
-        disp_prime = twiss.dpx[match_element_index]
-    elif plane == 'y':
-        gemitt = emitt_y/ref_particle.beta0[0]/ref_particle.gamma0[0]
-        beta = twiss.bety[match_element_index]
-        gamma = twiss.gamy[match_element_index]
-        disp = twiss.dy[match_element_index]
-        disp_prime = twiss.dpy[match_element_index]
+    gemitt = gemitts[plane]
+    beta = twiss[f'bet{plane}', match_element_index]
+    disp = twiss[f'd{plane}', match_element_index]
+    disp_prime = twiss[f'dp{plane}', match_element_index]
 
     sigma = np.sqrt(beta * gemitt)
     phys_cut = halfgap + imp_par
     phys_cut_sigma = phys_cut / sigma
 
-
-    phys_cut_betatron = halfgap + imp_par
-    if nsigma_for_offmom is not None:
+    # If off-momentum beams are requested, betatron_sigmas is set
+    # a custom value between 0 and the collimator cut
+    # If no off-momentum beams are requested, the betatron nsigma
+    # is the sigma setting of the collimator, computed at the match location
+    if betatron_sigmas is not None:
         assert abs(disp) > 0, 'Must have non-zero dispersion for off-mometnum beam'
-        momentum_cut = abs((phys_cut_sigma - nsigma_for_offmom)*sigma / disp)
+        betatron_nsig = betatron_sigmas
     else:
-        momentum_cut = abs(phys_cut / disp) if abs(disp) > 0 else np.nan
+        betatron_nsig = phys_cut_sigma
+
+    phys_cut_betatron = betatron_nsig * sigma
+
+    momentum_cut = abs((phys_cut_sigma - betatron_nsig)*sigma / disp)
     
     if spread_isnormed:
         spread_phys=spread * sigma
@@ -907,38 +934,42 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     for i, _ss in enumerate(list(side)):
         factor = -1 if _ss == '-' else 1
         npart = int(_round_funcs[i](num_particles / nsides))
-        abs_coords.append(xp.generate_2D_pencil_with_absolute_cut(
+
+        # tolerance to ensure the cut around the co is strictly > or < 0
+        _abs_cut = halo_cut_inner if abs(halo_cut_inner) > 0 else 1.0e-12
+
+        # Generate the required betatron absolute coordinates
+        abs_cut = factor*_abs_cut + twiss[abs_plane][match_element_index]
+        coords = list(xp.generate_2D_pencil_with_absolute_cut(
                 npart, 
                 line = line,
                 plane=abs_plane,
-                absolute_cut=factor*halo_cut_inner + coll_dict[abs_plane], 
+                absolute_cut=abs_cut, 
                 dr_sigmas=dr_sigmas,
                 side=_ss,
                 nemitt_x=emitt_x, nemitt_y=emitt_y,
                 at_element=coll_name, match_at_s=match_s,
                 **XTRACK_TWISS_KWARGS,))
+
+        # Add the dispersive offsets
+        # the delta sign is computed to push the particles
+        # towards the selected side
+        delta_sign = factor * np.sign(disp)
+        coords[0] += delta_sign * momentum_cut * disp
+        coords[1] += delta_sign * momentum_cut * disp_prime
+        coords.append(np.full(npart, delta_sign * momentum_cut))
+        
+        abs_coords.append(coords)
     
     coord_dict[f'{abs_plane}'] = np.concatenate([cc[0] for cc in abs_coords])
     coord_dict[f'p{abs_plane}'] = np.concatenate([cc[1] for cc in abs_coords])
+    coord_dict['delta'] = np.concatenate([cc[2] for cc in abs_coords])
+    coord_dict['zeta'] = 0.0
 
     # Other plane: generate a gaussian
     norm_coords = xp.generate_2D_gaussian(num_particles)
     coord_dict[f'{norm_plane}_norm'] = norm_coords[0]
     coord_dict[f'p{norm_plane}_norm'] = norm_coords[1]
-
-    # Longitudinal distribution always in absolute coordinates
-    zeta = 0
-    delta = 0
-    # Off-momentum delta if an off-momentum beam is specified
-    if nsigma_for_offmom is not None:
-        if side == '+-':
-            # Set delta to push the particles towards the corresponding jaw
-            delta_signs = np.sign(disp) * (coord_dict[abs_plane] > 0) + -np.sign(disp) * (coord_dict[abs_plane] < 0)
-            delta = delta_signs * momentum_cut
-        else:
-            factor = -1 if side=='-' else 1
-            delta_sign = factor * np.sign(disp)
-            delta = delta_sign * momentum_cut
 
     # Longitudinal distribution if specified
     assert sigma_z >= 0
@@ -954,8 +985,8 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     delta_co = twiss.delta[match_element_index] # The closed orbit delta
     zeta_co = twiss.zeta[match_element_index]
 
-    coord_dict['zeta'] = zeta + zeta_co + zeta_match
-    coord_dict['delta'] = delta + delta_co + delta_match
+    coord_dict['zeta'] = coord_dict['zeta'] + zeta_co + zeta_match
+    coord_dict['delta'] = coord_dict['delta'] + delta_co + delta_match
 
     part = line.build_particles(
             _capacity=capacity,
@@ -1170,6 +1201,11 @@ def prepare_particles(config_dict, line, ref_particle):
     else:
         raise ValueError('Unsupported distribution source: {}. Supported ones are: {}'
                          .format(dist['soruce'], ','.join(_supported_dist)))
+    
+    part_init_save_file=dist.get('initial_store_file', None)
+    if part_init_save_file is not None:
+        _save_particles_hdf(particles=particles, lossmap_data=None,
+                            filename=part_init_save_file)
     return particles
 
 
@@ -1179,7 +1215,17 @@ def build_collimation_tracker(line):
     # Transfer lattice on context and compile tracking code
     global_aper_limit = 1e3  # Make this large to ensure particles lost on aperture markers
 
+    # compile the track kernel once and set it as the default kernel. TODO: a bit clunky, find a more elegant approach
+
     line.build_tracker(_context=context)
+
+    tracker_opts=dict(track_kernel=line.tracker.track_kernel,
+                      _buffer=line.tracker._buffer,
+                      _context=line.tracker._context,
+                      io_buffer=line.tracker.io_buffer)
+    
+    line.discard_tracker() 
+    line.build_tracker(**tracker_opts)
     line.config.global_xy_limit=global_aper_limit
 
 
@@ -1295,6 +1341,7 @@ def _apply_dynamic_element_change(line, tbt_change_list, turn):
 def run(config_dict, line, particles, ref_part, start_element, s0):
     radiation_mode = config_dict['run']['radiation']
     beamstrahlung_mode = config_dict['run']['beamstrahlung']
+    bhabha_mode = config_dict['run']['bhabha']
 
     nturns = config_dict['run']['turns']
     
@@ -1321,8 +1368,8 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
             tbt_change_list = _prepare_dynamic_element_change(line, twiss_table, gemit_x, gemit_y, dyn_change_elem, nturns)
 
     
-    _configure_tracker_radiation(line, radiation_mode, beamstrahlung_mode, for_optics=False)
-    if radiation_mode == 'quantum':
+    _configure_tracker_radiation(line, radiation_mode, beamstrahlung_mode, bhabha_mode, for_optics=False)
+    if 'quantum' in (radiation_mode, beamstrahlung_mode, bhabha_mode):
         # Explicitly initialise the random number generator for the quantum mode
         seed = config_dict['run']['seed']
         seed_offset = 1e7 # Make sure the seeds are unique and don't overlap between simulations
@@ -1549,10 +1596,17 @@ def prepare_lossmap(particles, line, s0, binwidth, weights):
     mask_prim = particles.parent_particle_id == particles.particle_id
     n_prim = len(particles.filter(mask_prim).x)
 
-    # Select particles same as the beam particle
-    mask_part_type = abs(particles.chi - 1) < 1e-7
+    # Filter particles of different types than the norminal
+    # mask_part_type = abs(particles.chi - 1) < 1e-7
     mask_lost = particles.state <= 0
-    particles = particles.filter(mask_part_type & mask_lost)
+
+    # If no losses return empty loss maps, but preserve structures
+    if not np.any(mask_lost):
+        warn('No losses found, loss map will be empty')
+        particles = xp.Particles(x=[], **{kk[1]:getattr(particles,kk[1]) 
+                                          for kk in particles.scalar_vars})
+    else:
+        particles = particles.filter(mask_lost) #(mask_part_type & mask_lost)
 
     # Get a mask for the collimator losses
     mask_losses_coll = np.in1d(particles.at_element, coll_idx)
@@ -1561,7 +1615,7 @@ def prepare_lossmap(particles, line, s0, binwidth, weights):
     if weights == 'energy':
         part_mass_ratio = particles.charge_ratio / particles.chi
         part_mom = (particles.delta + 1) * particles.p0c * part_mass_ratio
-        part_mass = (particles.charge_ratio / particles.chi) * particles.mass0
+        part_mass = part_mass_ratio * particles.mass0
         part_tot_energy = np.sqrt(part_mom**2 + part_mass**2)
         histo_weights = part_tot_energy
     elif weights == 'none':
@@ -1748,7 +1802,7 @@ def execute(config_dict):
     # modifies the Particles object in place
     run(config_dict, line, particles, ref_part, start_elem, s0)
 
-    plot_lossmap(output_file, extra_ranges=[(33000, 35500), (44500, 46500)], norm='total')
+    # plot_lossmap(output_file, extra_ranges=[(33000, 35500), (44500, 46500)], norm='total')
 
 
 @contextmanager
