@@ -87,6 +87,12 @@ HALO_DIR_SCHM = Schema({'type': And(str, lambda s: s in ('halo_direct',)),
                         'side': And(str, lambda s: s in ('positive', 'negative', 'both')),
                         'sigma_z': Use(to_float)
                         })
+HALO_MDIR_SCHM = Schema({'type': And(str, lambda s: s in ('halo_direct_momentum',)),
+                        'num_betatron_sigma': Use(to_float),
+                        'sigma_spread': Use(to_float),
+                        'side': And(str, lambda s: s in ('positive', 'negative', 'both')),
+                        'sigma_z': Use(to_float)
+                        })
 MATCHED_SCHM = Schema({'type': And(str, lambda s: s in ('matched_beam',)),
                         'sigma_z': Use(to_float)
                         })
@@ -99,6 +105,7 @@ DIST_SCHEMA = Schema({'source': And(str, lambda s: s in ('gpdist', 'internal', '
                          XSUITE_DIST_SCHEMA,
                          MATCHED_SCHM,
                          HALO_DIR_SCHM,
+                         HALO_MDIR_SCHM,
                          HALO_POINT_SCHM,
                          HALO_MPOINT_SCHM),
         })
@@ -1096,6 +1103,12 @@ def _prepare_direct_halo(config_dict, line, ref_particle, element, emitt_x, emit
         spread = dist_params['sigma_spread']
         spread_symmetric = False
         spread_isnormed = True
+    elif dist_type == 'halo_direct_momentum':
+        imp_par = 0
+        spread = dist_params['sigma_spread']
+        spread_symmetric = False
+        spread_isnormed = True
+        nsigma_for_offmom = dist_params['num_betatron_sigma']
     else:
         raise Exception('Cannot process distribution type')
     
@@ -1170,7 +1183,7 @@ def generate_xpart_particles(config_dict, line, ref_particle, capacity):
 
     particles = None
     dist_type = dist_params.get('type', '')
-    if dist_type in ('halo_point', 'halo_point_momentum', 'halo_direct'):
+    if dist_type in ('halo_point', 'halo_point_momentum', 'halo_direct', 'halo_direct_momentum'):
         particles = _prepare_direct_halo(config_dict, line, ref_particle, 
                                          element, ex, ey, num_particles, capacity)
     elif dist_type == 'matched_beam':
