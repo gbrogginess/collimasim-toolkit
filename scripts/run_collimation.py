@@ -1401,10 +1401,9 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
     if 'quantum' in (radiation_mode, beamstrahlung_mode, bhabha_mode):
         # Explicitly initialise the random number generator for the quantum mode
         seed = config_dict['run']['seed']
-        seed_offset = 1e7 # Make sure the seeds are unique and don't overlap between simulations
         if seed > 1e5:
             raise ValueError('The random seed is too large. Please use a smaller seed (<1e5).')
-        seeds = np.full(particles._capacity, seed) * seed_offset + np.arange(particles._capacity)
+        seeds = np.full(particles._capacity, seed) + np.arange(particles._capacity)
         particles._init_random_number_generator(seeds=seeds)
 
     ###################################################
