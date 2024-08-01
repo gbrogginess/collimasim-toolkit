@@ -998,9 +998,10 @@ def _generate_direct_halo(line, ref_particle, coll_name,
     assert sigma_z >= 0
     if sigma_z > 0:
         print(f'Paramter sigma_z > 0, preparing a longitudinal distribution matched to the RF bucket')
-        zeta_match, delta_match = line.generate_longitudinal_coordinates(
-        num_particles=num_particles, distribution='gaussian',
-        sigma_z=sigma_z)
+        zeta_match, delta_match = xp.generate_longitudinal_coordinates(line=line,
+                                                                       num_particles=num_particles,
+                                                                       distribution='gaussian',
+                                                                       sigma_z=sigma_z)
     else:
         zeta_match = delta_match = 0
 
