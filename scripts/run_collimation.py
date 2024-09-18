@@ -1450,11 +1450,7 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
     if aper_interp is not None:
         loss_refiner = xt.LossLocationRefinement(line, n_theta=360,
                                                  r_max=1, dr=50e-6,
-                                                 ds=aper_interp, 
-                                                 allowed_backtrack_types=(xt.elements.Multipole,
-                                                                          xt.elements.DipoleEdge,
-                                                                          xt.elements.Marker, 
-                                                                          xt.elements.Cavity))
+                                                 ds=aper_interp)     
         loss_refiner.refine_loss_location(particles)
 
     if ('lossmap' in config_dict
