@@ -724,8 +724,11 @@ def load_and_process_line(config_dict):
             line = optics_line.copy()
         _configure_tracker_radiation(optics_line, radiation_mode, for_optics=True)
         twiss = optics_line.twiss(**XTRACK_TWISS_KWARGS)
-        line.tracker = None
 
+    # Build and discard the tracker. Needed to have all the element slices with ._parent attribute
+    # TODO: remove this when xsuite issue #551 (https://github.com/xsuite/xsuite/issues/551) is resolved
+    line.build_tracker()
+    line.discard_tracker()
 
     g4man = cs.Geant4CollimationManager(collimator_file=inp['collimator_file'],
                                         bdsim_config_file=inp['bdsim_config'],
@@ -738,6 +741,7 @@ def load_and_process_line(config_dict):
                                         material_rename_map=inp['material_rename_map'],
                                         batchMode=run['batch_mode'],
                                         )
+
     g4man.place_all_collimators(line)
     insert_collimator_bounding_apertures(line)
 
@@ -1471,10 +1475,7 @@ def run(config_dict, line, particles, ref_part, start_element, s0):
         # ax.scatter(part_copy.x, part_copy.px, marker='.', label=f'turn {turn}')
         #########################################################################
         
-        if turn == 0 and particles.start_tracking_at_element < 0:
-            line.track(particles, ele_start=start_element, num_turns=1)
-        else:
-            line.track(particles, num_turns=1)
+        line.track(particles, ele_start=start_element, ele_stop=start_element, num_turns=1)
 
         if particles._num_active_particles == 0:
             print(f'All particles lost by turn {turn}, teminating.')
